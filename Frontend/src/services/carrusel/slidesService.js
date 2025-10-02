@@ -51,3 +51,11 @@ export async function toggleSlide(id) {
   const { data } = await api.patch(`/admin/slides/${id}/toggle`);
   return unwrap(data);
 }
+
+export async function listPublicSlides() {
+  // Devuelve solo activos y vigentes (según tu controlador)
+  const { data } = await api.get("/slides");
+  // data puede venir envolvido en { data: [...] } por el Resource::collection
+  const items = Array.isArray(data) ? data : (data?.data ?? []);
+  return items;
+}

@@ -6,6 +6,7 @@ import { BrowserRouter } from "react-router-dom";
 import { CartProvider } from "./context/cart/cart-context.jsx";
 import App from "./App";
 import "./index.css";
+import CartModal from "./components/car/CartModal.jsx";
 
 ReactDOM.createRoot(document.getElementById("root")).render(
   <React.StrictMode>
@@ -14,6 +15,7 @@ ReactDOM.createRoot(document.getElementById("root")).render(
         <RouteLoadingProvider>
           <AuthProvider>
             <App />
+            <CartModal />
           </AuthProvider>
         </RouteLoadingProvider>
       </BrowserRouter>

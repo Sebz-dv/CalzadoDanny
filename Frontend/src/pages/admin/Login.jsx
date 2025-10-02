@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, forwardRef, useId } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { motion, AnimatePresence } from "framer-motion";
 import { Mail, Lock } from "lucide-react";
+import { FaEye, FaEyeSlash } from "react-icons/fa";
 
 import { useAuth } from "../../context/useAuth.js";
 import Loader from "../../components/loader/Loader.jsx";
@@ -17,7 +18,9 @@ function cn(...xs) {
 const DEFAULT_ICON = "https://cdn-icons-png.flaticon.com/512/3075/3075977.png";
 function useCompanyLogo() {
   const name = "DoMore";
-  const dicebear = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(name)}`;
+  const dicebear = `https://api.dicebear.com/7.x/initials/svg?seed=${encodeURIComponent(
+    name
+  )}`;
   return { name, src: dicebear || DEFAULT_ICON };
 }
 
@@ -52,8 +55,18 @@ const InputFL = forwardRef(function InputFL(
 
   const sizes = {
     sm: { py: "py-2", text: "text-sm", icon: "h-4 w-4", radius: "rounded-lg" },
-    md: { py: "py-3", text: "text-base", icon: "h-4 w-4", radius: "rounded-xl" },
-    lg: { py: "py-3.5", text: "text-base", icon: "h-5 w-5", radius: "rounded-2xl" },
+    md: {
+      py: "py-3",
+      text: "text-base",
+      icon: "h-4 w-4",
+      radius: "rounded-xl",
+    },
+    lg: {
+      py: "py-3.5",
+      text: "text-base",
+      icon: "h-5 w-5",
+      radius: "rounded-2xl",
+    },
   }[size];
 
   return (
@@ -62,8 +75,8 @@ const InputFL = forwardRef(function InputFL(
         <LeftIcon
           aria-hidden
           className={cn(
-            "absolute left-3 top-1/2 -translate-y-1/2",
-            "text-muted", 
+            "absolute left-3 top-6 -translate-y-1/2",
+            "text-muted",
             sizes.icon
           )}
         />
@@ -104,8 +117,8 @@ const InputFL = forwardRef(function InputFL(
       <label
         htmlFor={inputId}
         className={cn(
-          "pointer-events-none absolute transition-all",
-          hasIcon ? "left-10" : "left-4",
+          "pointer-events-none absolute transition-all mt-[-24px]",
+          hasIcon ? "left-2" : "left-4",
           "top-1/2 -translate-y-1/2",
           "text-sm text-muted",
           // flotar al focus o cuando hay contenido
@@ -173,39 +186,16 @@ function PasswordField({
         <button
           type="button"
           onClick={() => setShow((s) => !s)}
-          className="text-muted hover:text-base transition"
+          className="text-muted hover:text-base transition mt-[-22px]"
           aria-label={show ? "Ocultar contraseña" : "Mostrar contraseña"}
           aria-pressed={show}
         >
           {show ? (
             // EyeOff
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <path d="M3 3l18 18" stroke="currentColor" strokeWidth="2" strokeLinecap="round" />
-              <path
-                d="M10.58 10.58A2 2 0 0012 14a2 2 0 001.42-.58"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-              />
-              <path
-                d="M9.88 5.09A9.84 9.84 0 0112 5c5 0 9 4 10 7-.27.8-.7 1.57-1.25 2.28"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-              />
-              <path
-                d="M6.24 6.24C4.01 7.6 2.39 9.52 2 12c1 3 5 7 10 7 1.3 0 2.55-.24 3.7-.68"
-                stroke="currentColor"
-                strokeWidth="2"
-                strokeLinecap="round"
-              />
-            </svg>
+            <FaEye />
           ) : (
             // Eye
-            <svg width="20" height="20" viewBox="0 0 24 24" fill="none">
-              <path d="M2 12s4-7 10-7 10 7 10 7-4 7-10 7S2 12 2 12z" stroke="currentColor" strokeWidth="2" />
-              <circle cx="12" cy="12" r="3" stroke="currentColor" strokeWidth="2" />
-            </svg>
+            <FaEyeSlash />
           )}
         </button>
       }
@@ -301,26 +291,36 @@ export default function Login() {
       {/* Fondo: base + gradiente de marca sutil */}
       <div
         className={cn(
-          "relative min-h-dvh flex items-center justify-center px-4 overflow-hidden",
-          "bg-base", // usa --bg
+          "relative isolate min-h-dvh flex items-start md:items-center justify-center px-4 overflow-hidden pt-8 md:pt-0",
+          "bg-base",
           pageClass
         )}
       >
-        {/* gradiente suave con tus tokens */}
-        <div className="pointer-events-none absolute inset-0 opacity-30">
+        {/* Gradiente suave con tokens (primary→accent) con viñeta */}
+        <div
+          className="pointer-events-none absolute inset-0 opacity-20"
+          style={{
+            WebkitMaskImage:
+              "radial-gradient(60% 60% at 50% 40%, #fff 55%, transparent 100%)",
+            maskImage:
+              "radial-gradient(60% 60% at 50% 40%, #fff 55%, transparent 100%)",
+          }}
+        >
           <div className="absolute inset-0 bg-brand-gradient" />
         </div>
 
-        {/* patrón sutil usando --border */}
+        {/* Patrón sutil usando --border (ligero y no invasivo) */}
         <div
           className="pointer-events-none absolute inset-0"
           style={{
-            maskImage: "radial-gradient(circle at center, white 10%, transparent 70%)",
-            WebkitMaskImage: "radial-gradient(circle at center, white 10%, transparent 70%)",
+            WebkitMaskImage:
+              "radial-gradient(55% 55% at 50% 45%, #fff 30%, transparent 80%)",
+            maskImage:
+              "radial-gradient(55% 55% at 50% 45%, #fff 30%, transparent 80%)",
           }}
         >
           <div
-            className="absolute inset-0 opacity-20"
+            className="absolute inset-0 opacity-15"
             style={{
               backgroundImage:
                 "linear-gradient(hsl(var(--border)) 1px, transparent 1px), linear-gradient(90deg, hsl(var(--border)) 1px, transparent 1px)",
@@ -330,14 +330,15 @@ export default function Login() {
           />
         </div>
 
-        {/* Card principal (usa .card) */}
+        {/* Card principal */}
         <AnimatePresence>
           <motion.div
             key="login-card"
-            initial={{ opacity: 0, y: 10, scale: 0.98 }}
+            initial={{ opacity: 0, y: 10, scale: 0.985 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: -10, scale: 0.98 }}
+            exit={{ opacity: 0, y: -10, scale: 0.985 }}
             transition={{ duration: 0.35, ease: "easeOut" }}
+            style={{ willChange: "transform, opacity" }}
             className="w-full max-w-xl md:max-w-2xl lg:max-w-3xl p-0 rounded-app"
           >
             <div className="card overflow-hidden flex flex-col sm:flex-row">
@@ -351,7 +352,8 @@ export default function Login() {
                     loading="lazy"
                     decoding="async"
                     onError={(e) => {
-                      if (e.currentTarget.src !== DEFAULT_ICON) e.currentTarget.src = DEFAULT_ICON;
+                      if (e.currentTarget.src !== DEFAULT_ICON)
+                        e.currentTarget.src = DEFAULT_ICON;
                     }}
                   />
                   <div
@@ -363,13 +365,13 @@ export default function Login() {
                   />
                 </div>
                 <h2 className="text-xl sm:text-2xl font-semibold text-center mb-2 text-base">
-                  Bienvenido a {companyName}
+                  Bienvenido a Calzado Danny
                 </h2>
                 <p className="text-sm text-muted text-center max-w-xs leading-relaxed">
-                  Organiza tus actividades, mantén el control y alcanza tus metas.
+                  Crear calzado femenino de alta calidad que combine diseño, confort y durabilidad, promoviendo el trabajo artesanal colombiano.
                 </p>
                 <span className="mt-6 text-xs text-muted">
-                  © {new Date().getFullYear()} DoMore
+                  © {new Date().getFullYear()} Calzado Danny - Desde 1974
                 </span>
               </div>
 
@@ -379,7 +381,12 @@ export default function Login() {
                   Inicia sesión 🚀
                 </h1>
 
-                <form onSubmit={onSubmit} className="space-y-4" noValidate autoComplete="on">
+                <form
+                  onSubmit={onSubmit}
+                  className="space-y-4"
+                  noValidate
+                  autoComplete="on"
+                >
                   <InputFL
                     ref={emailRef}
                     id="email"
@@ -388,7 +395,9 @@ export default function Login() {
                     label="Correo electrónico"
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
-                    onKeyUp={(e) => setCapsLockOn(e.getModifierState?.("CapsLock"))}
+                    onKeyUp={(e) =>
+                      setCapsLockOn(e.getModifierState?.("CapsLock"))
+                    }
                     autoComplete="email"
                     inputMode="email"
                     enterKeyHint="next"
@@ -409,16 +418,20 @@ export default function Login() {
                   />
 
                   {capsLockOn && (
-                    <div className="text-xs text-warning -mt-1">Bloq Mayús activado</div>
+                    <div className="text-xs text-warning -mt-1">
+                      Bloq Mayús activado
+                    </div>
                   )}
 
                   {error && (
                     <div className="alert alert-destructive">
-                      <span className="text-destructive-foreground">{error}</span>
+                      <span className="text-destructive-foreground">
+                        {error}
+                      </span>
                     </div>
                   )}
 
-                  <div className="flex items-center justify-between text-sm">
+                  {/* <div className="flex items-center justify-between text-sm">
                     <label className="inline-flex items-center gap-2 select-none text-muted">
                       <input
                         type="checkbox"
@@ -427,10 +440,13 @@ export default function Login() {
                       />
                       Recuérdame
                     </label>
-                    <Link to="/forgot-password" className="text-primary underline-offset-2 hover:underline">
+                    <Link
+                      to="/forgot-password"
+                      className="text-primary underline-offset-2 hover:underline"
+                    >
                       ¿Olvidaste tu contraseña?
                     </Link>
-                  </div>
+                  </div> */}
 
                   <button
                     type="submit"
@@ -448,12 +464,15 @@ export default function Login() {
                   </button>
                 </form>
 
-                <div className="mt-4 text-center text-sm text-muted">
+                {/* <div className="mt-4 text-center text-sm text-muted">
                   <span>¿No tienes cuenta? </span>
-                  <Link to="/register" className="text-primary underline-offset-2 hover:underline">
+                  <Link
+                    to="/register"
+                    className="text-primary underline-offset-2 hover:underline"
+                  >
                     Regístrate
                   </Link>
-                </div>
+                </div> */}
               </div>
             </div>
           </motion.div>
@@ -461,10 +480,10 @@ export default function Login() {
 
         {/* utilidades de animación suaves */}
         <style>{`
-          .animate-bounce-slow { animation: bounceSlow 3.5s ease-in-out infinite; }
-          @keyframes bounceSlow { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
-          @media (prefers-reduced-motion: reduce) { .animate-bounce-slow { animation: none !important; } }
-        `}</style>
+      .animate-bounce-slow { animation: bounceSlow 3.5s ease-in-out infinite; }
+      @keyframes bounceSlow { 0%,100% { transform: translateY(0); } 50% { transform: translateY(-4px); } }
+      @media (prefers-reduced-motion: reduce) { .animate-bounce-slow { animation: none !important; } }
+    `}</style>
       </div>
     </>
   );
