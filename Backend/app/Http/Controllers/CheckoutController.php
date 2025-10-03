@@ -2,11 +2,10 @@
 
 namespace App\Http\Controllers;
 
-use App\Http\Controllers\Controller;
 use App\Http\Requests\CheckoutRequest;
 use App\Mail\NewOrderMail;
+use App\Models\Product;
 use Illuminate\Http\JsonResponse;
-use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
 use Illuminate\Support\Str;
@@ -15,39 +14,40 @@ class CheckoutController extends Controller
 {
     public function store(CheckoutRequest $request): JsonResponse
     {
-        // ===== Helpers para logs seguros (evita PII cruda) =====
-        $maskEmail = fn (?string $email) =>
-            $email ? preg_replace('/(^.).*(@.*$)/', '$1***$2', $email) : null;
+        // Helpers para PII en logs
+        $maskEmail = fn(?string $email) =>
+        $email ? preg_replace('/(^.).*(@.*$)/', '$1***$2', $email) : null;
+        $maskPhone = fn(?string $phone) =>
+        $phone ? preg_replace('/.(?=.{2})/', '•', preg_replace('/\s+/', '', $phone)) : null;
 
-        $maskPhone = fn (?string $phone) =>
-            $phone ? preg_replace('/.(?=.{2})/', '•', preg_replace('/\s+/', '', $phone)) : null;
-
-        // ========= Inicio: log básico del evento =========
-        Log::withContext([
-            'route'      => 'api.checkout.store',
-            'ip'         => $request->ip(),
-            'user_agent' => (string) $request->userAgent(),
-            // orderCode se setea más abajo, aquí inicial vacío
-            'orderCode'  => null,
-        ]);
+        // Log::withContext([
+        //     'route'      => 'api.checkout.store',
+        //     'ip'         => $request->ip(),
+        //     'user_agent' => (string) $request->userAgent(),
+        //     'orderCode'  => null,
+        // ]);
 
         $data = $request->validated();
 
-        Log::info('Checkout recibido', [
-            'items_count' => is_countable($data['items'] ?? null) ? count($data['items']) : 0,
-            'customer'    => [
-                'email'   => $maskEmail($data['customer']['email'] ?? null),
-                'phone'   => $maskPhone($data['customer']['phone'] ?? null),
-                // Dirección no se loguea; demasiado PII. Si quieres, enmárcala también.
-            ],
-        ]);
+        // Debug: qué nombres llegaron tras validated()
+        // Log::info('validated items (names)', [
+        //     'names' => array_column($data['items'] ?? [], 'name')
+        // ]);
 
-        // ===== Normaliza items y recalcula total en servidor =====
+        // Log::info('Checkout recibido', [
+        //     'items_count' => is_countable($data['items'] ?? null) ? count($data['items']) : 0,
+        //     'customer'    => [
+        //         'email' => $maskEmail($data['customer']['email'] ?? null),
+        //         'phone' => $maskPhone($data['customer']['phone'] ?? null),
+        //     ],
+        // ]);
+
+        // Normaliza items e impone mínimos
         $items = collect($data['items'] ?? [])
             ->map(function ($it) {
                 return [
                     'product_id'  => $it['product_id'] ?? null,
-                    'name'        => trim($it['name'] ?? ''),
+                    'name'        => trim((string)($it['name'] ?? '')),
                     'size'        => $it['size'] ?? null,
                     'color'       => $it['color'] ?? null,
                     'qty'         => (int) max(1, (int)($it['qty'] ?? 1)),
@@ -58,18 +58,33 @@ class CheckoutController extends Controller
             ->values()
             ->all();
 
-        $serverTotal = array_reduce($items, function ($acc, $it) {
-            return $acc + ($it['price_cents'] * $it['qty']);
-        }, 0);
+        // Fallback: si name viene vacío, lo buscamos en BD por product_id
+        $items = collect($items)->map(function ($it) {
+            if (!filled($it['name']) && !empty($it['product_id'])) {
+                if ($p = Product::select('name')->find($it['product_id'])) {
+                    $it['name'] = $p->name;
+                }
+            }
+            return $it;
+        })->values()->all();
 
-        // ===== Validación extra de coherencia de total =====
+        // Debug: nombres finales que enviaremos por mail
+        // Log::info('Items normalizados para mail', [
+        //     'names' => array_map(fn($i) => $i['name'] ?? null, $items)
+        // ]);
+
+        // Total server-side
+        $serverTotal = array_reduce($items, fn($acc, $it) =>
+        $acc + ($it['price_cents'] * $it['qty']), 0);
+
+        // Coherencia de total
         $clientTotal = (int) ($data['total_cents'] ?? -1);
         if ($clientTotal !== $serverTotal) {
-            Log::warning('Checkout total mismatch', [
-                'client_total' => $clientTotal,
-                'server_total' => $serverTotal,
-                'diff'         => $serverTotal - $clientTotal,
-            ]);
+            // Log::warning('Checkout total mismatch', [
+            //     'client_total' => $clientTotal,
+            //     'server_total' => $serverTotal,
+            //     'diff'         => $serverTotal - $clientTotal,
+            // ]);
 
             return response()->json([
                 'message'       => 'El total no coincide.',
@@ -84,43 +99,46 @@ class CheckoutController extends Controller
             'address' => $data['customer']['address'] ?? null,
         ];
 
-        // (Opcional) valida de nuevo email (por si cambiaste reglas)
         if (!filter_var($customer['email'], FILTER_VALIDATE_EMAIL)) {
-            Log::warning('Email inválido después de validación', [
-                'email' => $maskEmail($customer['email']),
-            ]);
+            // Log::warning('Email inválido después de validación', [
+            //     'email' => $maskEmail($customer['email']),
+            // ]);
 
             return response()->json([
                 'message' => 'Correo inválido.',
             ], 422);
         }
 
-        // ===== Código de pedido para trazabilidad =====
+        // Código de pedido
         $orderCode = 'ORD-' . Str::upper(Str::random(8));
-        Log::withContext(['orderCode' => $orderCode]); // todos los logs siguientes heredarán esto
+        // Log::withContext(['orderCode' => $orderCode]);
 
         try {
             $to = 'Ventasonlinemese@gmail.com';
 
-            $mailable = (new NewOrderMail($customer, $items, $serverTotal, $orderCode))
+            $mailable = (new NewOrderMail(
+                customer: $customer,
+                items: $items,
+                total_cents: $serverTotal,
+                orderCode: $orderCode
+            ))
                 ->subject("Nueva orden #{$orderCode}")
                 ->replyTo($customer['email']);
 
             $mailer = Mail::to($to);
-
             if (filter_var($customer['email'], FILTER_VALIDATE_EMAIL)) {
                 $mailer->cc([$customer['email']]);
             }
 
-            // Usa queue() si tienes cola; si no, cambia a send()
+            // Para pruebas locales usa send(); en prod/cola usa queue()
             $mailer->send($mailable);
 
-            Log::info('Checkout encolado para envío de correo', [
-                'to'          => $to,
-                'cc'          => $maskEmail($customer['email']),
-                'items_count' => count($items),
-                'total_cents' => $serverTotal,
-            ]);
+            // Log::info('Checkout enviado por correo', [
+            //     'to'          => $to,
+            //     'cc'          => $maskEmail($customer['email']),
+            //     'items_count' => count($items),
+            //     'total_cents' => $serverTotal,
+            // ]);
 
             return response()->json([
                 'ok'          => true,
@@ -129,8 +147,7 @@ class CheckoutController extends Controller
             ], 201);
         } catch (\Throwable $e) {
             Log::error('Checkout mail failed', [
-                'error' => $e->getMessage(),
-                // No metemos $items completos ni address aquí para evitar PII en logs de error
+                'error'       => $e->getMessage(),
                 'items_count' => count($items),
                 'has_email'   => (bool) $customer['email'],
             ]);

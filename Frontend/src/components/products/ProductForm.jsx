@@ -5,6 +5,7 @@ import {
   updateProduct,
 } from "../../services/products/productsService";
 import { listCategories } from "../../services/categories/categoriesService";
+import MainImageField from "../buttons/MainImageField";
 
 const GENDER_MAP = {
   male: "male",
@@ -23,22 +24,35 @@ export default function ProductForm({ product, onSaved, debug = false }) {
     color: "",
     gender: "male",
     status: "published",
+
+    // imagen principal
     main_image: undefined, // File | null | undefined
     main_image_alt: "",
-    images: [],
+    main_image_url: "", // para edición (preview existente)
+
+    // galería nueva
+    images: [], // File[]
     images_alt: [],
-    // campos “admin” de galería existente:
+
+    // admin galería existente
     remove_image_ids: [],
     images_order: [],
+
+    // precio (cents)
+    price_cents: null,
   });
 
   const [cats, setCats] = useState([]);
+  const [existingImages, setExistingImages] = useState([]); // [{id,url,alt,position,remove:false}]
   const [error, setError] = useState(null);
   const [loading, setLoading] = useState(false);
 
-  // estado derivado de producto para edición
-  const [existingImages, setExistingImages] = useState([]); // [{id,url,alt,position,remove:false}]
-  const [mainImagePreview, setMainImagePreview] = useState(null); // URL | null
+  // ====== helpers ======
+  const onChange = (k, v) => setForm((f) => ({ ...f, [k]: v }));
+  const onChangeNumber = (k, v) => {
+    const n = v === "" ? "" : Number(v);
+    onChange(k, Number.isNaN(n) ? "" : n);
+  };
 
   // ====== cargar categorías ======
   useEffect(() => {
@@ -58,10 +72,9 @@ export default function ProductForm({ product, onSaved, debug = false }) {
   useEffect(() => {
     if (!product) {
       setExistingImages([]);
-      setMainImagePreview(null);
       return;
     }
-    // Prepara formulario base desde product
+
     setForm((f) => ({
       ...f,
       category_id: product.category_id ?? "",
@@ -72,45 +85,32 @@ export default function ProductForm({ product, onSaved, debug = false }) {
       color: product.color ?? "",
       gender: product.gender ?? "male",
       status: product.status ?? "published",
-      // no precargamos File de imagen principal, pero mostramos preview
+
+      // principal: no precargamos File, solo url/alt para preview
       main_image: undefined,
       main_image_alt: product.main_image_alt ?? "",
+      main_image_url: product.main_image_url ?? "",
+
+      // reset de inputs de galería nueva
       images: [],
       images_alt: [],
+
+      // admin
       remove_image_ids: [],
       images_order: (product.images || []).map((img) => img.id),
+
+      // precio si lo tienes en el producto (ajusta si difiere)
+      price_cents: product.price_cents ?? null,
     }));
-    // Galería existente con flags de control
+
+    // ordenar galería existente
     const sorted = [...(product.images || [])].sort((a, b) => {
       const pa = Number(a.position ?? 0),
         pb = Number(b.position ?? 0);
       return pa === pb ? a.id - b.id : pa - pb;
     });
     setExistingImages(sorted.map((i) => ({ ...i, remove: false })));
-    setMainImagePreview(product.main_image_url || null);
   }, [product]);
-
-  // ====== helpers ======
-  const onChange = (k, v) => setForm((f) => ({ ...f, [k]: v }));
-
-  const onChangeNumber = (k, v) => {
-    const n = v === "" ? "" : Number(v);
-    onChange(k, Number.isNaN(n) ? "" : n);
-  };
-
-  // previsualizar imagen principal nueva
-  useEffect(() => {
-    if (form.main_image instanceof File) {
-      const url = URL.createObjectURL(form.main_image);
-      setMainImagePreview(url);
-      return () => URL.revokeObjectURL(url);
-    } else if (!product) {
-      setMainImagePreview(null);
-    } else {
-      // si estamos editando y no pusimos nueva, mantenemos la del producto
-      setMainImagePreview(product?.main_image_url || null);
-    }
-  }, [form.main_image, product]);
 
   // marcar/desmarcar para remover imagen existente
   const toggleRemove = (id) => {
@@ -119,7 +119,7 @@ export default function ProductForm({ product, onSaved, debug = false }) {
     );
   };
 
-  // mover ↑/↓ una imagen existente (solo en UI; luego mandamos order)
+  // mover ↑/↓ en UI (luego mandamos order)
   const moveImage = (id, dir) => {
     setExistingImages((imgs) => {
       const arr = [...imgs];
@@ -187,8 +187,8 @@ export default function ProductForm({ product, onSaved, debug = false }) {
 
   // limpiar imagen principal (en edición enviamos main_image: null)
   const clearMainImage = () => {
-    setForm((f) => ({ ...f, main_image: null }));
-    setMainImagePreview(null);
+    onChange("main_image", null);
+    onChange("main_image_url", ""); // limpiamos preview existente si quieres
   };
 
   return (
@@ -302,59 +302,47 @@ export default function ProductForm({ product, onSaved, debug = false }) {
         </div>
       </div>
 
-      {/* Imagen principal */}
+      {/* Imagen principal — ahora usando MainImageField */}
       <div className="space-y-2">
-        <label className="text-sm text-muted block">Imagen principal</label>
-        {mainImagePreview ? (
-          <div className="flex items-start gap-3">
-            <img
-              src={mainImagePreview}
-              alt="principal"
-              className="w-28 h-28 object-cover rounded-app border"
-            />
-            <div className="flex flex-col gap-2">
-              <button
-                type="button"
-                onClick={clearMainImage}
-                className="btn btn-ghost"
-                title="Quitar imagen principal"
-              >
-                Quitar
-              </button>
-            </div>
+        <MainImageField
+          label="Imagen principal"
+          valueFile={form.main_image}
+          valueAlt={form.main_image_alt}
+          existingUrl={form.main_image_url}
+          onChangeFile={(file) => onChange("main_image", file)}
+          onChangeAlt={(txt) => onChange("main_image_alt", txt)}
+          help="JPG, PNG o WEBP. Tamaño recomendado: 1200×1200."
+        />
+
+        {/* Botón opcional para limpiar en edición */}
+        {(form.main_image || form.main_image_url) && (
+          <div className="mt-1">
+            <button
+              type="button"
+              className="btn btn-ghost is-sm"
+              onClick={clearMainImage}
+            >
+              Quitar imagen principal
+            </button>
           </div>
-        ) : (
-          <p className="text-sm text-muted">Sin imagen seleccionada</p>
         )}
 
-        <input
-          type="file"
-          accept="image/*"
-          onChange={(e) => onChange("main_image", e.target.files?.[0])}
-          className="block"
-        />
-
-        <input
-          className="input"
-          value={form.main_image_alt}
-          onChange={(e) => onChange("main_image_alt", e.target.value)}
-          placeholder="Texto alternativo (accesibilidad/SEO)"
-        />
-
-        <input
-          type="number"
-          min={0}
-          step={1000}
-          value={Math.round((form.price_cents ?? 0) / 100)}
-          onChange={(e) =>
-            onChange(
-              "price_cents",
-              Math.max(0, Number(e.target.value || 0)) * 100
-            )
-          }
-          className="input"
-          placeholder="Precio en COP (sin puntos, ej: 120000)"
-        />
+        {/* Precio (COP) conservando tu lógica de placeholder 0 y vacío si no hay datos */}
+        <div className="mt-3">
+          <label className="text-sm text-muted block">Valor (COP)</label>
+          <input
+            type="number"
+            min={0}
+            step={1000}
+            value={form.price_cents ?? ""} // 👈 sin dividir
+            onChange={(e) => {
+              const v = e.target.value;
+              onChange("price_cents", v === "" ? null : Math.max(0, Number(v))); // 👈 sin multiplicar
+            }}
+            className="input"
+            placeholder="0"
+          />
+        </div>
       </div>
 
       {/* Galería existente (editar) */}
@@ -372,17 +360,15 @@ export default function ProductForm({ product, onSaved, debug = false }) {
                   className="w-full h-28 object-cover rounded-app border"
                 />
                 <div className="flex items-center justify-between">
-                  <div className="flex items-center gap-2">
+                  <label className="inline-flex items-center gap-2 cursor-pointer">
                     <input
                       id={`rm-${img.id}`}
                       type="checkbox"
                       checked={!!img.remove}
                       onChange={() => toggleRemove(img.id)}
                     />
-                    <label htmlFor={`rm-${img.id}`} className="text-sm">
-                      Eliminar
-                    </label>
-                  </div>
+                    <span className="text-sm">Eliminar</span>
+                  </label>
                   <div className="flex gap-1">
                     <button
                       type="button"
@@ -418,13 +404,31 @@ export default function ProductForm({ product, onSaved, debug = false }) {
       {/* Agregar nuevas imágenes a la galería */}
       <div className="space-y-2">
         <label className="text-sm text-muted block">Agregar a galería</label>
-        <input
-          multiple
-          type="file"
-          accept="image/*"
-          onChange={(e) => onChange("images", Array.from(e.target.files || []))}
-          className="block"
-        />
+
+        {/* Dropzone simple estilizada */}
+        <label className="panel p-3 flex cursor-pointer items-center justify-between gap-3 rounded border-2 border-dashed border-subtle bg-[hsl(var(--muted))/0.5] hover:bg-[hsl(var(--muted))/0.8] transition-colors">
+          <div className="flex items-center gap-3">
+            <div className="grid h-10 w-10 place-items-center rounded bg-[hsl(var(--bg))] border">
+              🖼️
+            </div>
+            <div className="leading-tight">
+              <div className="font-semibold">Subir imágenes</div>
+              <div className="help">
+                Arrastra y suelta o haz clic (múltiples)
+              </div>
+            </div>
+          </div>
+          <span className="btn btn-secondary is-sm">Seleccionar</span>
+          <input
+            multiple
+            type="file"
+            accept="image/*"
+            className="sr-only"
+            onChange={(e) =>
+              onChange("images", Array.from(e.target.files || []))
+            }
+          />
+        </label>
       </div>
 
       {/* Estado */}
@@ -445,7 +449,7 @@ export default function ProductForm({ product, onSaved, debug = false }) {
         <button type="submit" disabled={loading} className="btn btn-primary">
           {loading ? "Guardando..." : product ? "Actualizar" : "Crear"}
         </button>
-        {debug && <span className="badge badge-info">debug activo</span>}
+        {debug && <span className="badge">debug activo</span>}
       </div>
     </form>
   );

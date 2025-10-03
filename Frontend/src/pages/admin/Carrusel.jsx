@@ -37,7 +37,9 @@ export default function Carrusel() {
     }
   }
 
-  useEffect(() => { fetchData(1); }, []);
+  useEffect(() => {
+    fetchData(1);
+  }, []);
 
   function openCreate() {
     setEditing(null);
@@ -79,11 +81,21 @@ export default function Carrusel() {
     try {
       if (editing) {
         await updateSlide(editing.id, {
-          title, alt, caption, is_active: isActive, image, mobile_image: mobileImage,
+          title,
+          alt,
+          caption,
+          is_active: isActive,
+          image,
+          mobile_image: mobileImage,
         });
       } else {
         await createSlide({
-          title, alt, caption, is_active: isActive, image, mobile_image: mobileImage,
+          title,
+          alt,
+          caption,
+          is_active: isActive,
+          image,
+          mobile_image: mobileImage,
         });
       }
       setShowForm(false);
@@ -243,7 +255,13 @@ export default function Carrusel() {
                     {s.image_url ? (
                       <img
                         src={s.image_url}
+                        alt={s.alt || s.title || `Slide ${s.id}`}
                         className="h-12 w-20 object-cover rounded"
+                        onError={(e) => {
+                          e.currentTarget.style.objectFit = "contain";
+                          e.currentTarget.src =
+                            'data:image/svg+xml;utf8,<svg xmlns="http://www.w3.org/2000/svg" width="160" height="96"><rect width="100%" height="100%" fill="%23eee"/><text x="50%" y="50%" dominant-baseline="middle" text-anchor="middle" fill="%23999" font-family="Arial" font-size="12">sin imagen</text></svg>';
+                        }}
                       />
                     ) : (
                       <div className="h-12 w-20 bg-muted rounded" />

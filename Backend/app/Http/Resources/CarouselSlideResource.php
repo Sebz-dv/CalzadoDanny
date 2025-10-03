@@ -7,8 +7,6 @@ use Illuminate\Support\Facades\Storage;
 
 class CarouselSlideResource extends JsonResource
 {
-
-
     public function toArray($request)
     {
         $arr = [
@@ -16,12 +14,16 @@ class CarouselSlideResource extends JsonResource
             'title'     => $this->title,
             'alt'       => $this->alt,
             'caption'   => $this->caption,
-            'is_active' => $this->is_active,
+            'is_active' => (bool) $this->is_active,
             'position'  => $this->position,
+
             'image_path'        => $this->image_path,
             'mobile_image_path' => $this->mobile_image_path,
-            'image_url'         => $this->image_url,         // del accessor del modelo
-            'mobile_image_url'  => $this->mobile_image_url,  // idem
+
+            // Se leen de los accessors del modelo (ver paso 1)
+            'image_url'         => $this->image_url,
+            'mobile_image_url'  => $this->mobile_image_url,
+
             'updated_at'        => $this->updated_at,
         ];
 
@@ -31,10 +33,10 @@ class CarouselSlideResource extends JsonResource
             $abs  = $rel ? (str_starts_with($rel, 'http') ? $rel : url($rel)) : null;
 
             $arr['debug'] = [
-                'app_url'              => config('app.url'),
-                'fs_public_url'        => $rel,
-                'absolute_url'         => $abs,
-                'exists_on_disk'       => $this->image_path ? $disk->exists($this->image_path) : null,
+                'app_url'               => config('app.url'),
+                'fs_public_url'         => $rel, // suele ser "/storage/..."
+                'absolute_url'          => $abs, // debería ser "http://localhost:8000/storage/..."
+                'exists_on_disk'        => $this->image_path ? $disk->exists($this->image_path) : null,
                 'public_symlink_exists' => file_exists(public_path('storage')),
             ];
         }
