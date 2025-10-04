@@ -6,6 +6,7 @@ use App\Http\Controllers\AuthController;
 use App\Http\Controllers\CarruselController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CheckoutController;
+use App\Http\Controllers\ContactController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProfileController;
 
@@ -28,6 +29,8 @@ Route::get('products/{product:slug}', [ProductController::class, 'show']);
 
 // 🚀 Público: checkout (lo que consume tu landing / grid)
 Route::post('/checkout', [CheckoutController::class, 'store']);
+
+Route::post('/contact', [ContactController::class, 'store'])->middleware('throttle:5,1');
 
 
 // ---------- Privado (JWT) ----------

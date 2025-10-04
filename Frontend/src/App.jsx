@@ -16,6 +16,7 @@ import { CartProvider } from "./context/cart/cart-context";
 import CartModal from "./components/car/CartModal";
 import CarToast from "./components/car/CartToast";  
 import ProductsBrowse from "./components/products/ProductsBrowse";
+import Contact from "./pages/public/Contact";
 
 
 // --------- Shells ---------
@@ -55,7 +56,8 @@ export default function App() {
         <Route path="/" element={<Index />} />
         <Route path="/about" element={<About />} /> 
         <Route path="/shop" element={<ProductsBrowse  />} /> 
-        <Route path="/categories/:slug" element={<CategoryBrowse />} />
+        <Route path="/categories/:slug" element={<CategoryBrowse />} /> 
+        <Route path="/contact" element={<Contact />} />
       </Route>
 
       <Route path="/login" element={<Login />} />

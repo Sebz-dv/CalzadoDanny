@@ -11,7 +11,7 @@ const Menu = [
   { id: 2, name: "Nosotros", link: "/about" },
   { id: 3, name: "Tienda", link: "/shop" },
   { id: 4, name: "Contacto", link: "/contact" },
-  { id: 5, name: "Login", link: "/login" },
+  { id: 5, name: "", link: "/login" },
 ];
 
 export default function Navbar() {
