@@ -35,4 +35,7 @@ return [
         ],
     ],
 
+    'bold' => [
+        'api_key' => env('BOLD_API_KEY'),
+    ],
 ];
