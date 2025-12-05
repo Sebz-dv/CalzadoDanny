@@ -20,6 +20,7 @@ export default function ProductForm({ product, onSaved, debug = false }) {
   const [form, setForm] = useState({
     category_id: "",
     name: "",
+    referencia: "",
     slug: "",
     description: "",
     size: "",
@@ -81,6 +82,7 @@ export default function ProductForm({ product, onSaved, debug = false }) {
       ...f,
       category_id: product.category_id ?? "",
       name: product.name ?? "",
+      referencia: product.referencia ?? "",
       slug: product.slug ?? "",
       description: product.description ?? "",
       size: product.size ?? "",
@@ -159,6 +161,7 @@ export default function ProductForm({ product, onSaved, debug = false }) {
         category_id,
         gender,
         slug: form.slug?.trim() || undefined,
+        referencia: form.referencia?.trim() || "",
         // admin galería:
         remove_image_ids: computeGalleryAdmin.remove,
         images_order: computeGalleryAdmin.order,
@@ -259,8 +262,9 @@ export default function ProductForm({ product, onSaved, debug = false }) {
           </select>
         </div>
 
-        {/* Nombre / Slug */}
+        {/* Nombre / Referencia / Slug */}
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Nombre */}
           <div className="field">
             <label className="label">Nombre *</label>
             <input
@@ -271,7 +275,21 @@ export default function ProductForm({ product, onSaved, debug = false }) {
               required
             />
           </div>
+
+          {/* Referencia */}
           <div className="field">
+            <label className="label">Referencia *</label>
+            <input
+              className="input w-full border border-neutral-400 dark:border-neutral-300"
+              value={form.referencia}
+              onChange={(e) => onChange("referencia", e.target.value)}
+              placeholder="Ej: REF-1234, 5010, COD-ABC…"
+              required
+            />
+          </div>
+
+          {/* Slug */}
+          <div className="field md:col-span-2">
             <label className="label flex items-center justify-between">
               <span>Slug</span>
               <span className="text-[0.7rem] help">Opcional</span>
@@ -433,7 +451,9 @@ export default function ProductForm({ product, onSaved, debug = false }) {
                 <li
                   key={img.id}
                   className={`flex flex-col gap-2 rounded-lg bg-[hsl(var(--card))] p-2 border border-neutral-400 dark:border-neutral-300 ${
-                    img.remove ? "opacity-60 ring-1 ring-[hsl(var(--destructive))]" : ""
+                    img.remove
+                      ? "opacity-60 ring-1 ring-[hsl(var(--destructive))]"
+                      : ""
                   }`}
                 >
                   <img

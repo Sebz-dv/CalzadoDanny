@@ -1,15 +1,11 @@
 // src/components/checkout/CheckoutModal.jsx
-import React, {
-  useEffect,
-  useMemo,
-  useState,
-  useRef,
-} from "react";
+import React, { useEffect, useMemo, useState, useRef } from "react";
 import { useCart } from "../../context/cart/cart-context";
 import { sendCheckout } from "../../services/checkout/checkoutService";
 
-// Pequeña ayuda para persistir el form del cliente
+// Clave para persistir datos del cliente en localStorage
 const FORM_KEY = "checkout:customer";
+
 const loadCustomer = () => {
   try {
     return (
@@ -23,24 +19,26 @@ const loadCustomer = () => {
     return { email: "", phone: "", address: "" };
   }
 };
+
 const saveCustomer = (data) => {
   try {
     localStorage.setItem(FORM_KEY, JSON.stringify(data));
   } catch {
-    // no pasa nada si falla el localStorage
+    // si falla localStorage, no pasa nada
   }
 };
 
 export default function CheckoutModal({ open, onClose }) {
-  const { items, totalCOP, formatCOP, clear, showToast } = useCart();
+  const { items, totalCOP, formatCOP, showToast } = useCart();
 
   const [form, setForm] = useState(loadCustomer);
   const [loading, setLoading] = useState(false);
-  const [errors, setErrors] = useState({}); // {field: message}
+  const [errors, setErrors] = useState({}); // { field: message }
   const [step, setStep] = useState("form"); // "form" | "pay"
   const [orderCode, setOrderCode] = useState(null);
   const [boldData, setBoldData] = useState(null); // { amount, currency, signature }
 
+  // Reset del modal cuando se cierra / reabre
   useEffect(() => {
     if (!open) {
       setErrors({});
@@ -50,14 +48,13 @@ export default function CheckoutModal({ open, onClose }) {
       setBoldData(null);
       return;
     }
-    // cuando abre, rehidrata por si cambió en otra pestaña
     setForm(loadCustomer());
   }, [open]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
-    setForm((f) => {
-      const next = { ...f, [name]: value };
+    setForm((prev) => {
+      const next = { ...prev, [name]: value };
       saveCustomer(next);
       return next;
     });
@@ -65,17 +62,28 @@ export default function CheckoutModal({ open, onClose }) {
 
   const validate = () => {
     const err = {};
-    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email))
+
+    if (!/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(form.email)) {
       err.email = "Correo inválido";
-    if (!/^\+?\d{7,15}$/.test(form.phone.replace(/\s+/g, "")))
+    }
+
+    if (!/^\+?\d{7,15}$/.test(form.phone.replace(/\s+/g, ""))) {
       err.phone = "Celular inválido";
-    if ((form.address ?? "").trim().length < 6)
+    }
+
+    if ((form.address ?? "").trim().length < 6) {
       err.address = "Dirección muy corta";
-    if (items.length === 0) err.items = "El carrito está vacío";
+    }
+
+    if (items.length === 0) {
+      err.items = "El carrito está vacío";
+    }
+
     setErrors(err);
     return Object.keys(err).length === 0;
   };
 
+  // Payload que se envía al backend
   const payload = useMemo(
     () => ({
       customer: {
@@ -89,10 +97,11 @@ export default function CheckoutModal({ open, onClose }) {
         size: it.size ?? null,
         color: it.color ?? null,
         qty: it.qty ?? 1,
-        price_cents: it.price_cents ?? 0, // manejas COP “enteros”
+        // manejas COP como enteros (sin decimales)
+        price_cents: it.price_cents ?? 0,
         image: it.image ?? null,
       })),
-      total_cents: totalCOP, // tu contexto ya lo calcula
+      total_cents: totalCOP,
     }),
     [form, items, totalCOP]
   );
@@ -103,13 +112,11 @@ export default function CheckoutModal({ open, onClose }) {
 
     try {
       setLoading(true);
-      const data = await sendCheckout(payload); // asumimos que devuelve data JSON
+      const data = await sendCheckout(payload);
 
       if (data?.ok) {
-        // Guardamos código de orden (si viene)
         setOrderCode(data.order_code ?? null);
 
-        // Guardamos datos para el botón Bold
         setBoldData({
           amount: data.bold_amount ?? totalCOP,
           currency: data.bold_currency ?? "COP",
@@ -121,7 +128,6 @@ export default function CheckoutModal({ open, onClose }) {
           desc: "Ahora realiza el pago con Bold.",
         });
 
-        // NO limpiamos el carrito aún; lo hacemos después si quieres
         setStep("pay");
       } else {
         showToast?.({
@@ -154,16 +160,16 @@ export default function CheckoutModal({ open, onClose }) {
 
   return (
     <div
-      className="fixed inset-0 z-[10000] bg-black/50 backdrop-blur-[1px] p-4 flex items-center justify-center"
+      className="fixed inset-0 z-[10000] bg-black/50 backdrop-blur-[1px] px-2 py-4 sm:p-4 flex items-center justify-center"
       role="dialog"
       aria-modal="true"
       onClick={(e) => {
         if (e.target === e.currentTarget) onClose();
       }}
     >
-      <div className="w-full max-w-2xl card overflow-hidden">
+      <div className="w-full max-w-2xl card overflow-hidden max-h-[90vh] flex flex-col">
         <div className="card-header justify-between bg-[hsl(var(--muted))]">
-          <h3 className="text-lg font-bold">Finalizar compra</h3>
+          <h3 className="text-base sm:text-lg font-bold">Finalizar compra</h3>
           <button
             className="btn btn-ghost is-sm"
             onClick={onClose}
@@ -173,64 +179,75 @@ export default function CheckoutModal({ open, onClose }) {
           </button>
         </div>
 
-        <div className="card-body grid gap-4">
-          {/* Items */}
+        <div className="card-body grid gap-4 overflow-y-auto">
+          {/* Items del carrito */}
           <div className="border rounded-lg overflow-hidden">
-            <table className="table">
-              <thead>
-                <tr>
-                  <th>Producto</th>
-                  <th className="w-20">Cant.</th>
-                  <th className="w-28">Precio</th>
-                </tr>
-              </thead>
-              <tbody>
-                {items.map((it, i) => (
-                  <tr key={i}>
-                    <td className="align-top">
-                      <div className="flex gap-3">
-                        <div className="w-12 h-12 rounded-md overflow-hidden surface-muted flex-shrink-0">
-                          {it.image ? (
-                            <img
-                              src={it.image}
-                              alt={it.name}
-                              className="w-full h-full object-cover"
-                            />
-                          ) : null}
-                        </div>
-                        <div>
-                          <div className="font-semibold">{it.name}</div>
-                          <div className="text-xs text-[hsl(var(--text-muted))]">
-                            {it.size ? <>Talla {it.size} • </> : null}
-                            {it.color ? <>{it.color}</> : null}
+            <div className="overflow-x-auto">
+              <table className="table min-w-full text-xs sm:text-sm">
+                <thead>
+                  <tr>
+                    <th className="whitespace-nowrap">Producto</th>
+                    <th className="w-16 sm:w-20 text-center">Cant.</th>
+                    <th className="w-24 sm:w-28 text-right">Precio</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {items.map((it, i) => (
+                    <tr key={i}>
+                      <td className="align-top">
+                        <div className="flex gap-2 sm:gap-3">
+                          <div className="w-10 h-10 sm:w-12 sm:h-12 rounded-md overflow-hidden surface-muted flex-shrink-0">
+                            {it.image ? (
+                              <img
+                                src={it.image}
+                                alt={it.name}
+                                className="w-full h-full object-cover"
+                              />
+                            ) : null}
+                          </div>
+                          <div>
+                            <div className="font-semibold text-xs sm:text-sm">
+                              {it.name}
+                            </div>
+                            <div className="text-[10px] sm:text-xs text-[hsl(var(--text-muted))]">
+                              {it.size ? <>Talla {it.size} • </> : null}
+                              {it.color ? <>{it.color}</> : null}
+                            </div>
                           </div>
                         </div>
-                      </div>
+                      </td>
+                      <td className="text-center align-middle">
+                        {it.qty ?? 1}
+                      </td>
+                      <td className="font-semibold text-right align-middle">
+                        {formatCOP(it.price_cents ?? 0)}
+                      </td>
+                    </tr>
+                  ))}
+                  <tr>
+                    <td
+                      colSpan={2}
+                      className="text-right font-bold text-xs sm:text-sm"
+                    >
+                      Total
                     </td>
-                    <td>{it.qty ?? 1}</td>
-                    <td className="font-semibold">
-                      {formatCOP(it.price_cents ?? 0)}
+                    <td className="font-extrabold text-right">
+                      {formatCOP(totalCOP)}
                     </td>
                   </tr>
-                ))}
-                <tr>
-                  <td colSpan={2} className="text-right font-bold">
-                    Total
-                  </td>
-                  <td className="font-extrabold">{formatCOP(totalCOP)}</td>
-                </tr>
-              </tbody>
-            </table>
+                </tbody>
+              </table>
+            </div>
           </div>
           {errors.items && (
-            <p className="text-red-600 text-sm">{errors.items}</p>
+            <p className="text-red-600 text-xs sm:text-sm">{errors.items}</p>
           )}
 
           {step === "form" ? (
-            // Paso 1: formulario de datos
+            // Paso 1: datos del cliente
             <form className="grid gap-3" onSubmit={onSubmit}>
               <div className="field">
-                <label className="label">Correo electrónico</label>
+                <label className="label text-sm">Correo electrónico</label>
                 <input
                   className={`input ${errors.email ? "is-danger" : ""}`}
                   name="email"
@@ -240,12 +257,14 @@ export default function CheckoutModal({ open, onClose }) {
                   onChange={handleChange}
                 />
                 {errors.email && (
-                  <span className="help text-red-600">{errors.email}</span>
+                  <span className="help text-red-600 text-xs">
+                    {errors.email}
+                  </span>
                 )}
               </div>
 
               <div className="field">
-                <label className="label">Celular</label>
+                <label className="label text-sm">Celular</label>
                 <input
                   className={`input ${errors.phone ? "is-danger" : ""}`}
                   name="phone"
@@ -255,12 +274,14 @@ export default function CheckoutModal({ open, onClose }) {
                   onChange={handleChange}
                 />
                 {errors.phone && (
-                  <span className="help text-red-600">{errors.phone}</span>
+                  <span className="help text-red-600 text-xs">
+                    {errors.phone}
+                  </span>
                 )}
               </div>
 
               <div className="field">
-                <label className="label">Dirección</label>
+                <label className="label text-sm">Dirección</label>
                 <input
                   className={`input ${errors.address ? "is-danger" : ""}`}
                   name="address"
@@ -270,27 +291,29 @@ export default function CheckoutModal({ open, onClose }) {
                   onChange={handleChange}
                 />
                 {errors.address && (
-                  <span className="help text-red-600">{errors.address}</span>
+                  <span className="help text-red-600 text-xs">
+                    {errors.address}
+                  </span>
                 )}
               </div>
 
-              <div className="card-footer justify-between bg-[hsl(var(--muted))] rounded-lg">
-                <span className="text-sm text-[hsl(var(--text-muted))]">
+              <div className="card-footer bg-[hsl(var(--muted))] rounded-lg flex flex-col sm:flex-row sm:items-center sm:justify-between gap-2">
+                <span className="text-xs sm:text-sm text-[hsl(var(--text-muted))]">
                   Te llegará confirmación al correo.
                 </span>
                 <button
                   type="submit"
                   disabled={loading}
-                  className="btn btn-primary"
+                  className="btn btn-primary w-full sm:w-auto"
                 >
                   {loading ? "Enviando…" : "Confirmar pedido"}
                 </button>
               </div>
             </form>
           ) : (
-            // Paso 2: botón de pagos Bold
+            // Paso 2: Botón Bold (embedded)
             <div className="grid gap-3">
-              <div className="p-3 rounded-lg bg-[hsl(var(--muted))] text-sm">
+              <div className="p-3 rounded-lg bg-[hsl(var(--muted))] text-xs sm:text-sm">
                 <p>
                   Tu pedido{" "}
                   {orderCode ? (
@@ -311,18 +334,18 @@ export default function CheckoutModal({ open, onClose }) {
                 boldData={boldData}
               />
 
-              <div className="flex justify-between items-center mt-2">
+              <div className="flex flex-col sm:flex-row justify-between items-stretch sm:items-center mt-2 gap-2">
                 <button
                   type="button"
-                  className="btn btn-ghost is-sm"
+                  className="btn btn-ghost is-sm w-full sm:w-auto"
                   onClick={() => {
-                    clear(); // limpia carrito al cerrar
+                    // Solo cerramos el modal, no limpiamos el carrito aquí.
                     onClose();
                   }}
                 >
                   Cerrar
                 </button>
-                <span className="text-xs text-[hsl(var(--text-muted))]">
+                <span className="text-[10px] sm:text-xs text-[hsl(var(--text-muted))] text-center sm:text-right">
                   Si el pago no se completa, tu pedido quedará pendiente de
                   confirmación.
                 </span>
@@ -336,116 +359,73 @@ export default function CheckoutModal({ open, onClose }) {
 }
 
 /**
- * Componente que renderiza el Botón de Pagos de Bold
+ * Componente que renderiza el Botón de Pagos de Bold (Embedded Checkout)
  */
 function BoldPaymentButton({ totalCOP, orderCode, boldData }) {
   const containerRef = useRef(null);
-  const [scriptReady, setScriptReady] = useState(false);
 
-  // Cargar la librería global de Bold UNA sola vez
   useEffect(() => {
-    if (document.querySelector('script[data-bold-lib="true"]')) {
-      setScriptReady(true);
-      return;
-    }
-
-    const script = document.createElement("script");
-    script.src = "https://checkout.bold.co/library/boldPaymentButton.js";
-    script.async = true;
-    script.setAttribute("data-bold-lib", "true");
-
-    script.onload = () => setScriptReady(true);
-    script.onerror = () => {
-      console.error("No se pudo cargar el script de Bold");
-      setScriptReady(false);
-    };
-
-    document.body.appendChild(script);
-  }, []);
-
-  // Crear el <script data-bold-button ...> dinámicamente con amount y orderCode
-  useEffect(() => {
-    if (!scriptReady || !containerRef.current) return;
+    if (!containerRef.current) return;
     if (!boldData) return;
 
-    // Limpia cualquier instancia anterior
+    // Limpia cualquier instancia previa del botón
     containerRef.current.innerHTML = "";
 
     const scriptTag = document.createElement("script");
 
-    // Estilos del botón: dark-L, dark-M, light-S, etc.
+    // Librería + config del botón en el mismo script
+    scriptTag.src = "https://checkout.bold.co/library/boldPaymentButton.js";
+    scriptTag.async = true;
+
+    // Estilo del botón (dark-L, dark-M, light-S, etc.)
     scriptTag.setAttribute("data-bold-button", "dark-L");
+
+    // Modo embebido: abre la pasarela en un modal dentro de tu página
+    scriptTag.setAttribute("data-render-mode", "embedded");
 
     const safeOrderId = orderCode || `ORD-${Date.now()}`;
 
     scriptTag.setAttribute("data-order-id", safeOrderId);
-    scriptTag.setAttribute(
-      "data-currency",
-      boldData.currency || "COP"
-    );
-    scriptTag.setAttribute(
-      "data-amount",
-      String(boldData.amount ?? totalCOP)
-    );
+    scriptTag.setAttribute("data-currency", boldData.currency || "COP");
+    scriptTag.setAttribute("data-amount", String(boldData.amount ?? totalCOP));
 
-    // ⚠️ Usa aquí TU API KEY PÚBLICA (la de identidad, NO la secreta)
-    scriptTag.setAttribute(
-      "data-api-key",
-      import.meta.env.VITE_BOLD_API_KEY || "TU_API_KEY_PUBLICA_DE_BOLD_AQUI"
-    );
-
-    // Hash de integridad generado en el backend (obligatorio cuando hay amount)
-    if (boldData.signature) {
-      scriptTag.setAttribute(
-        "data-integrity-signature",
-        boldData.signature
+    const apiKey = import.meta.env.VITE_BOLD_API_KEY;
+    if (!apiKey) {
+      console.error(
+        "[BoldPaymentButton] Falta VITE_BOLD_API_KEY en el .env del frontend"
       );
     }
+    scriptTag.setAttribute(
+      "data-api-key",
+      apiKey || "TU_API_KEY_PUBLICA_DE_BOLD_AQUI"
+    );
 
-    // 🔥 IMPORTANTE: NO poner redirection-url en localhost
-    // Bold se queja de "http://localhost:5173/..." como inválido
-    if (window.location.protocol === "https:") {
-      const redirectionUrl =
-        window.location.origin + "/checkout/resultado";
-
-      scriptTag.setAttribute("data-redirection-url", redirectionUrl);
+    // Hash de integridad generado en el backend
+    if (boldData.signature) {
+      scriptTag.setAttribute("data-integrity-signature", boldData.signature);
     }
-    // En local (http://localhost:5173) no seteamos nada y Bold usa la URL padre
 
-    // Descripción (2–100 caracteres, sin URL)
+    // 🔥 Redirigir a la MISMA página con un flag para saber que viene de Bold
+    const url = new URL(window.location.href);
+    url.searchParams.set("bold_return", "1");
+    scriptTag.setAttribute("data-redirection-url", url.toString());
+
     const desc = orderCode
       ? `Compra Calzado Danny #${orderCode}`
       : "Compra Calzado Danny";
-
     scriptTag.setAttribute("data-description", desc);
 
     // Impuesto (si aplica)
     scriptTag.setAttribute("data-tax", "vat-19");
 
-    // Log para ver qué exactamente se le pasa a Bold
-    console.log("BoldPaymentButton config:", {
-      "data-order-id": safeOrderId,
-      "data-currency": boldData.currency || "COP",
-      "data-amount": String(boldData.amount ?? totalCOP),
-      "data-api-key":
-        import.meta.env.VITE_BOLD_API_KEY || "TU_API_KEY_PUBLICA_DE_BOLD_AQUI",
-      "data-integrity-signature": boldData.signature,
-      "data-redirection-url":
-        window.location.protocol === "https:"
-          ? window.location.origin + "/checkout/resultado"
-          : "(no enviada en http)",
-      "data-description": desc,
-      "data-tax": "vat-19",
-    });
-
     containerRef.current.appendChild(scriptTag);
-  }, [scriptReady, boldData, orderCode, totalCOP]);
+  }, [boldData, orderCode, totalCOP]);
 
   return (
     <div className="flex flex-col items-center gap-2">
       <div ref={containerRef} />
-      <p className="text-xs text-[hsl(var(--text-muted))] text-center mt-2">
-        Serás dirigido a Bold para completar el pago de forma segura.
+      <p className="text-[10px] sm:text-xs text-[hsl(var(--text-muted))] text-center mt-2">
+        El pago se abrirá en un modal seguro de Bold, sin salir de esta página.
       </p>
     </div>
   );

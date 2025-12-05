@@ -210,6 +210,7 @@
                                 @forelse($items as $idx => $it)
                                     @php
                                         $name = $it['name'] ?? 'Producto';
+                                        $ref = $it['referencia'] ?? null; // 👈 referencia por ítem
                                         $size = !empty($it['size']) ? " (Talla {$it['size']})" : '';
                                         $color = !empty($it['color']) ? ' – ' . ucfirst($it['color']) : '';
                                         $unit = (int) ($it['price_cents'] ?? 0);
@@ -218,7 +219,13 @@
                                     @endphp
                                     <tr style="background: {{ $rowBg }};">
                                         <td style="padding:10px; border-bottom:1px solid #E5D7CB; color:#191410;">
-                                            {{ $name }}{{ $size }}{{ $color }}</td>
+                                            {{-- Nombre + referencia + talla + color --}}
+                                            {{ $name }}
+                                            @if (!empty($ref))
+                                                ({{ $ref }})
+                                            @endif
+                                            {{ $size }}{{ $color }}
+                                        </td>
                                         <td align="right"
                                             style="padding:10px; border-bottom:1px solid #E5D7CB; color:#191410;">
                                             {{ $money($unit) }}</td>

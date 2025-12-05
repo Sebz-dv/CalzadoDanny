@@ -50,24 +50,43 @@ class CheckoutController extends Controller
                     'name'        => trim((string)($it['name'] ?? '')),
                     'size'        => $it['size'] ?? null,
                     'color'       => $it['color'] ?? null,
+                    'referencia'  => trim((string)($it['referencia'] ?? '')),
                     'qty'         => (int) max(1, (int)($it['qty'] ?? 1)),
                     'price_cents' => (int) max(0, (int)($it['price_cents'] ?? 0)),
                     'image'       => $it['image'] ?? null,
                 ];
-            })->values()->all();
+            })
+            ->values()
+            ->all();
 
-        // Fallback de nombre desde BD
-        $items = collect($items)->map(function ($it) {
-            if (!filled($it['name']) && !empty($it['product_id'])) {
-                if ($p = Product::select('name')->find($it['product_id'])) {
-                    $it['name'] = $p->name;
+        // Fallback de nombre (y referencia) desde BD si no vinieron en el payload
+        $items = collect($items)
+            ->map(function ($it) {
+                if ((!filled($it['name']) || !filled($it['referencia'])) && !empty($it['product_id'])) {
+                    $p = Product::select('name', 'referencia')->find($it['product_id']);
+                    if ($p) {
+                        if (!filled($it['name'])) {
+                            $it['name'] = $p->name;
+                        }
+                        if (!filled($it['referencia'])) {
+                            $it['referencia'] = $p->referencia ?? '';
+                        }
+                    }
                 }
-            }
-            return $it;
-        })->values()->all();
+                return $it;
+            })
+            ->values()
+            ->all();
 
         Log::debug('Checkout: items normalizados', [
-            'names' => array_map(fn($i) => $i['name'] ?? null, $items),
+            'items' => array_map(function ($i) {
+                return [
+                    'name'       => $i['name'] ?? null,
+                    'referencia' => $i['referencia'] ?? null,
+                    'qty'        => $i['qty'] ?? null,
+                    'price'      => $i['price_cents'] ?? null,
+                ];
+            }, $items),
         ]);
 
         // ===== Totales (server vs client) =====
@@ -146,9 +165,16 @@ class CheckoutController extends Controller
         try {
             $to = 'Ventasonlinemese@gmail.com';
 
+            // Array de referencias por ítem para mantener compatibilidad
+            $referencias = array_map(
+                fn($i) => $i['referencia'] ?? null,
+                $items
+            );
+
             $mailable = (new NewOrderMail(
                 customer: $customer,
                 items: $items,
+                referencia: $referencias,
                 total_cents: $serverTotal,
                 orderCode: $orderCode,
                 payUrl: null, // Ahora el pago se hace con el botón Bold en el sitio

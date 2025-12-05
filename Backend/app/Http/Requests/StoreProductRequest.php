@@ -21,6 +21,7 @@ class StoreProductRequest extends FormRequest
             'price_cents' => ['sometimes', 'integer'],
             'size'        => ['nullable', 'string'],
             'color'       => ['nullable', 'string'],
+            'referencia'       => ['nullable', 'string'],
             'gender'      => ['required', 'in:male,female'],
 
             'status'      => ['nullable', 'in:draft,published,archived'],

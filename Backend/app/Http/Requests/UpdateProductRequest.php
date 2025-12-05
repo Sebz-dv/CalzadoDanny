@@ -26,6 +26,7 @@ class UpdateProductRequest extends FormRequest
             'price_cents' => ['sometimes', 'integer', 'min:0'],
             'size'        => ['sometimes', 'nullable', 'string'],
             'color'       => ['sometimes', 'nullable', 'string'],
+            'referencia'       => ['sometimes', 'nullable', 'string'],
             'gender'      => ['sometimes', 'in:male,female'],
 
             'status'      => ['sometimes', 'in:draft,published,archived'],

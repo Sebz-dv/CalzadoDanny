@@ -12,6 +12,7 @@ function normalize(p = {}) {
 
     size: (p.size ?? "").toString(),
     color: (p.color ?? "").toString(),
+    referencia: (p.referencia ?? "").toString(),
     gender: p.gender ?? "male",
 
     status: p.status ?? "published",
@@ -39,6 +40,7 @@ function buildFormData(p = {}) {
     "description",
     "size",
     "color",
+    "referencia",
     "gender",
     "status",
     "price_cents", // 👈 NUEVO
