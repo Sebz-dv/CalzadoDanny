@@ -37,7 +37,7 @@ class NewOrderMail extends Mailable
         return $this->subject(
                 $this->orderCode ? "Nueva orden #{$this->orderCode}" : "Nueva orden"
             ) 
-            ->view('emails.new_order_html')
+            ->view('emails.new_order')
             ->with([
                 'customer'       => $this->customer,
                 'items'          => $this->items,

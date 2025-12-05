@@ -1,11 +1,19 @@
 // src/pages/admin/ProductsPage.jsx
 import React, { useEffect, useMemo, useState } from "react";
-import { listProducts, deleteProduct } from "../../services/products/productsService";
+import {
+  listProducts,
+  deleteProduct,
+} from "../../services/products/productsService";
 import ProductModal from "./ProductModal";
 
 export default function ProductsPage() {
   const [rows, setRows] = useState([]);
-  const [meta, setMeta] = useState({ current_page: 1, per_page: 12, total: 0, last_page: 1 });
+  const [meta, setMeta] = useState({
+    current_page: 1,
+    per_page: 12,
+    total: 0,
+    last_page: 1,
+  });
   const [loading, setLoading] = useState(false);
   const [q, setQ] = useState("");
   const [page, setPage] = useState(1);
@@ -24,7 +32,11 @@ export default function ProductsPage() {
       const res = await listProducts(params);
 
       // Soporta Resource Collection de Laravel (data/meta) o array plano
-      const data = Array.isArray(res?.data) ? res.data : Array.isArray(res) ? res : [];
+      const data = Array.isArray(res?.data)
+        ? res.data
+        : Array.isArray(res)
+        ? res
+        : [];
       const m = res?.meta ?? {
         current_page: res?.current_page ?? params.page ?? 1,
         per_page: res?.per_page ?? 12,
@@ -71,7 +83,8 @@ export default function ProductsPage() {
   };
 
   const onDelete = async (id) => {
-    if (!confirm("¿Eliminar este producto? Esta acción no se puede deshacer.")) return;
+    if (!confirm("¿Eliminar este producto? Esta acción no se puede deshacer."))
+      return;
     try {
       await deleteProduct(id);
       fetchData({ page });
@@ -88,23 +101,27 @@ export default function ProductsPage() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">Productos</h1>
-        <button onClick={openCreate} className="btn btn-primary">Nuevo producto</button>
+        <button onClick={openCreate} className="btn btn-primary">
+          Nuevo producto
+        </button>
       </div>
 
       <form onSubmit={onSearch} className="flex gap-2">
         <input
-          className="input"
+          className="input border border-neutral-400 dark:border-neutral-300"
           placeholder="Buscar por nombre/slug…"
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
-        <button className="btn btn-ghost" type="submit">Buscar</button>
+        <button className="btn btn-ghost" type="submit">
+          Buscar
+        </button>
       </form>
 
-      <div className="card overflow-x-auto">
+      <div className="card overflow-x-auto border border-neutral-400 dark:border-neutral-300">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-muted">
+            <tr className="bg-muted border-b border-neutral-400 dark:border-neutral-300">
               <th className="text-left p-2">#</th>
               <th className="text-left p-2">Producto</th>
               <th className="text-left p-2">Categoría</th>
@@ -117,42 +134,74 @@ export default function ProductsPage() {
           </thead>
           <tbody>
             {loading && (
-              <tr><td colSpan={8} className="p-4 text-center text-muted">Cargando…</td></tr>
-            )}
-            {!loading && rows.length === 0 && (
-              <tr><td colSpan={8} className="p-4 text-center text-muted">No hay productos.</td></tr>
-            )}
-            {!loading && rows.map((p) => (
-              <tr key={p.id} className="border-b">
-                <td className="p-2 align-middle">{p.id}</td>
-                <td className="p-2">
-                  <div className="flex items-center gap-3">
-                    {p.main_image_url ? (
-                      <img src={p.main_image_url} alt={p.name} className="w-12 h-12 object-cover rounded-app border" />
-                    ) : (
-                      <div className="w-12 h-12 rounded-app border bg-muted" />
-                    )}
-                    <div>
-                      <div className="font-medium">{p.name}</div>
-                      <div className="text-xs text-muted">{p.slug}</div>
-                    </div>
-                  </div>
-                </td>
-                <td className="p-2">{p.category?.name ?? "-"}</td>
-                <td className="p-2 capitalize">{(p.gender || "").replace("male","Hombre").replace("female","Mujer")}</td>
-                <td className="p-2">{p.size || "-"}</td>
-                <td className="p-2">{p.color || "-"}</td>
-                <td className="p-2">
-                  <span className="badge">{p.status}</span>
-                </td>
-                <td className="p-2 text-right">
-                  <div className="inline-flex gap-2">
-                    <button className="btn btn-ghost" onClick={() => openEdit(p)}>Editar</button>
-                    <button className="btn btn-destructive" onClick={() => onDelete(p.id)}>Eliminar</button>
-                  </div>
+              <tr>
+                <td colSpan={8} className="p-4 text-center text-muted">
+                  Cargando…
                 </td>
               </tr>
-            ))}
+            )}
+            {!loading && rows.length === 0 && (
+              <tr>
+                <td colSpan={8} className="p-4 text-center text-muted">
+                  No hay productos.
+                </td>
+              </tr>
+            )}
+            {!loading &&
+              rows.map((p) => (
+                <tr
+                  key={p.id}
+                  className="border-b border-neutral-200 dark:border-neutral-400/80"
+                >
+                  <td className="p-2 align-middle">{p.id}</td>
+                  <td className="p-2">
+                    <div className="flex items-center gap-3">
+                      {p.main_image_url ? (
+                        <img
+                          src={p.main_image_url}
+                          alt={p.name}
+                          className="w-12 h-12 object-cover rounded-app border border-neutral-400 dark:border-neutral-300"
+                        />
+                      ) : (
+                        <div className="w-12 h-12 rounded-app border border-neutral-400 dark:border-neutral-300 bg-muted" />
+                      )}
+                      <div>
+                        <div className="font-medium">{p.name}</div>
+                        <div className="text-xs text-muted">{p.slug}</div>
+                      </div>
+                    </div>
+                  </td>
+                  <td className="p-2">{p.category?.name ?? "-"}</td>
+                  <td className="p-2 capitalize">
+                    {(p.gender || "")
+                      .replace("male", "Hombre")
+                      .replace("female", "Mujer")}
+                  </td>
+                  <td className="p-2">{p.size || "-"}</td>
+                  <td className="p-2">{p.color || "-"}</td>
+                  <td className="p-2">
+                    <span className="badge border border-neutral-400 dark:border-neutral-300">
+                      {p.status}
+                    </span>
+                  </td>
+                  <td className="p-2 text-right">
+                    <div className="inline-flex gap-2">
+                      <button
+                        className="btn btn-outline is-sm border border-neutral-400 dark:border-neutral-300 dark:text-neutral-100"
+                        onClick={() => openEdit(p)}
+                      >
+                        Editar
+                      </button>
+                      <button
+                        className="btn btn-destructive is-sm"
+                        onClick={() => onDelete(p.id)}
+                      >
+                        Eliminar
+                      </button>
+                    </div>
+                  </td>
+                </tr>
+              ))}
           </tbody>
         </table>
       </div>
@@ -164,16 +213,24 @@ export default function ProductsPage() {
         </div>
         <div className="flex gap-2">
           <button
-            className="btn btn-ghost"
+            className="btn btn-ghost border border-transparent disabled:border-transparent"
             disabled={!canPrev}
-            onClick={() => { setPage(meta.current_page - 1); fetchData({ page: meta.current_page - 1 }); }}
+            onClick={() => {
+              const newPage = meta.current_page - 1;
+              setPage(newPage);
+              fetchData({ page: newPage });
+            }}
           >
             ← Anterior
           </button>
           <button
-            className="btn btn-ghost"
+            className="btn btn-ghost border border-transparent disabled:border-transparent"
             disabled={!canNext}
-            onClick={() => { setPage(meta.current_page + 1); fetchData({ page: meta.current_page + 1 }); }}
+            onClick={() => {
+              const newPage = meta.current_page + 1;
+              setPage(newPage);
+              fetchData({ page: newPage });
+            }}
           >
             Siguiente →
           </button>
@@ -184,7 +241,10 @@ export default function ProductsPage() {
       {modalOpen && (
         <ProductModal
           product={editing}
-          onClose={() => { setModalOpen(false); setEditing(null); }}
+          onClose={() => {
+            setModalOpen(false);
+            setEditing(null);
+          }}
           onSaved={onSaved}
         />
       )}

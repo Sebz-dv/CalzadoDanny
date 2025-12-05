@@ -24,8 +24,8 @@ class UpdateProductRequest extends FormRequest
             'slug'        => ['sometimes', 'nullable', 'string', 'max:180', Rule::unique('products', 'slug')->ignore($id)],
             'description' => ['sometimes', 'nullable', 'string'],
             'price_cents' => ['sometimes', 'integer', 'min:0'],
-            'size'        => ['sometimes', 'nullable', 'string', 'max:32'],
-            'color'       => ['sometimes', 'nullable', 'string', 'max:24'],
+            'size'        => ['sometimes', 'nullable', 'string'],
+            'color'       => ['sometimes', 'nullable', 'string'],
             'gender'      => ['sometimes', 'in:male,female'],
 
             'status'      => ['sometimes', 'in:draft,published,archived'],

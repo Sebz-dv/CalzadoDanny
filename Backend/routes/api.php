@@ -3,12 +3,14 @@
 use Illuminate\Support\Facades\Route;
 
 use App\Http\Controllers\AuthController;
+use App\Http\Controllers\BoldCallbackController;
 use App\Http\Controllers\CarruselController;
 use App\Http\Controllers\CategoryController;
 use App\Http\Controllers\CheckoutController;
 use App\Http\Controllers\ContactController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProfileController;
+use App\Http\Controllers\BoldPaymentController;
 
 // ---------- Auth pública ----------
 Route::post('register', [AuthController::class, 'register']);
@@ -30,9 +32,10 @@ Route::get('products/{product:slug}', [ProductController::class, 'show']);
 // 🚀 Público: checkout (lo que consume tu landing / grid)
 Route::post('/checkout', [CheckoutController::class, 'store']);
 
+// Webhook/callback de Bold
+Route::post('/checkout/bold/callback', [BoldCallbackController::class, 'handle']);
+
 Route::post('/contact', [ContactController::class, 'store'])->middleware('throttle:5,1');
-
-
 // ---------- Privado (JWT) ----------
 Route::middleware(['jwt.cookie', 'auth:api'])->group(function () {
     Route::get('me', [AuthController::class, 'me']);

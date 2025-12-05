@@ -10,7 +10,7 @@ export default function ProductModal({ product, onClose, onSaved }) {
     return () => window.removeEventListener("keydown", onKey);
   }, [onClose]);
 
-  const title = product ? "Editar producto" : "Crear producto";
+  const title = product ? "Editar producto" : "Crear producto"; 
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">

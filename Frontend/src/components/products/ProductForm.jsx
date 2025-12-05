@@ -14,6 +14,8 @@ const GENDER_MAP = {
   mujer: "female",
 };
 
+const MAX_PRICE = 999_999_999; // límite aprox: 999M COP
+
 export default function ProductForm({ product, onSaved, debug = false }) {
   const [form, setForm] = useState({
     category_id: "",
@@ -99,14 +101,14 @@ export default function ProductForm({ product, onSaved, debug = false }) {
       remove_image_ids: [],
       images_order: (product.images || []).map((img) => img.id),
 
-      // precio si lo tienes en el producto (ajusta si difiere)
+      // precio
       price_cents: product.price_cents ?? null,
     }));
 
     // ordenar galería existente
     const sorted = [...(product.images || [])].sort((a, b) => {
-      const pa = Number(a.position ?? 0),
-        pb = Number(b.position ?? 0);
+      const pa = Number(a.position ?? 0);
+      const pb = Number(b.position ?? 0);
       return pa === pb ? a.id - b.id : pa - pb;
     });
     setExistingImages(sorted.map((i) => ({ ...i, remove: false })));
@@ -188,268 +190,397 @@ export default function ProductForm({ product, onSaved, debug = false }) {
   // limpiar imagen principal (en edición enviamos main_image: null)
   const clearMainImage = () => {
     onChange("main_image", null);
-    onChange("main_image_url", ""); // limpiamos preview existente si quieres
+    onChange("main_image_url", "");
   };
 
+  // chips para color
+  const colorChips = useMemo(() => {
+    return (form.color || "")
+      .split(",")
+      .map((c) => c.trim())
+      .filter(Boolean);
+  }, [form.color]);
+
   return (
-    <form onSubmit={onSubmit} className="space-y-4">
+    <form onSubmit={onSubmit} className="space-y-6 max-w-5xl mx-auto">
+      {/* Header */}
+      <div className="flex items-center justify-between gap-2">
+        <div>
+          <h2 className="text-lg font-semibold">
+            {product ? "Editar producto" : "Crear producto"}
+          </h2>
+          <p className="text-sm help">
+            Completa la información básica, imágenes y precio.
+          </p>
+        </div>
+        {debug && (
+          <span className="badge bg-[hsl(var(--warning)/0.15)] border-[hsl(var(--warning))] text-[hsl(var(--warning-foreground))]">
+            Debug activo
+          </span>
+        )}
+      </div>
+
       {error && (
-        <div className="alert alert-destructive">
-          <span className="font-medium">Error:</span>
-          <span>{error}</span>
+        <div className="rounded-lg border border-[hsl(var(--destructive))] bg-[hsl(var(--destructive)/0.12)] px-4 py-3 text-sm text-[hsl(var(--destructive-foreground))] flex items-start gap-2">
+          <span className="mt-0.5">⚠️</span>
+          <div>
+            <div className="font-semibold">Error al guardar</div>
+            <div>{error}</div>
+          </div>
         </div>
       )}
 
-      {/* Categoría */}
-      <div className="space-y-1">
-        <label className="text-sm text-muted">Categoría</label>
-        <select
-          value={form.category_id}
-          onChange={(e) => onChangeNumber("category_id", e.target.value)}
-          required
-          className="select"
-        >
-          <option value="">-- Categoría --</option>
-          {(cats?.data ?? cats)?.map?.((c) => (
-            <option key={c.id} value={c.id}>
-              {c.name}
-            </option>
-          ))}
-        </select>
-      </div>
+      {/* Sección: Información básica */}
+      <section className="card p-4 md:p-6 space-y-4 border border-neutral-400 dark:border-neutral-300">
+        <div className="flex items-center justify-between gap-2">
+          <h3 className="text-sm font-semibold uppercase tracking-wide text-[hsl(var(--muted-foreground))]">
+            Información básica
+          </h3>
+          <span className="text-xs help">
+            Campos obligatorios marcados con *
+          </span>
+        </div>
 
-      {/* Nombre / Slug */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <div className="space-y-1">
-          <label className="text-sm text-muted">Nombre</label>
-          <input
-            className="input"
-            value={form.name}
-            onChange={(e) => onChange("name", e.target.value)}
-            placeholder="Nombre"
+        {/* Categoría */}
+        <div className="field">
+          <label className="label">Categoría *</label>
+          <select
+            value={form.category_id}
+            onChange={(e) => onChangeNumber("category_id", e.target.value)}
             required
-          />
+            className="select w-full border border-neutral-400 dark:border-neutral-300"
+          >
+            <option value="">Selecciona una categoría…</option>
+            {(cats?.data ?? cats)?.map?.((c) => (
+              <option key={c.id} value={c.id}>
+                {c.name}
+              </option>
+            ))}
+          </select>
         </div>
-        <div className="space-y-1">
-          <label className="text-sm text-muted">Slug (opcional)</label>
-          <input
-            className="input"
-            value={form.slug}
-            onChange={(e) => onChange("slug", e.target.value)}
-            placeholder="mi-producto-top"
-          />
-        </div>
-      </div>
 
-      {/* Descripción */}
-      <div className="space-y-1">
-        <label className="text-sm text-muted">Descripción</label>
-        <textarea
-          className="textarea"
-          rows={3}
-          value={form.description}
-          onChange={(e) => onChange("description", e.target.value)}
-          placeholder="Detalles del producto…"
-        />
-      </div>
-
-      {/* Talla / Color */}
-      <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
-        <div className="space-y-1">
-          <label className="text-sm text-muted">Talla</label>
-          <input
-            className="input"
-            value={form.size}
-            onChange={(e) => onChange("size", e.target.value)}
-            placeholder="M, 36…"
-          />
-        </div>
-        <div className="space-y-1">
-          <label className="text-sm text-muted">Color</label>
-          <input
-            className="input"
-            value={form.color}
-            onChange={(e) => onChange("color", e.target.value)}
-            placeholder="Negro, Azul…"
-          />
-        </div>
-      </div>
-
-      {/* Género */}
-      <div className="space-y-1">
-        <label className="text-sm text-muted">Género</label>
-        <div className="flex gap-4 items-center">
-          <label className="inline-flex items-center gap-2 cursor-pointer">
+        {/* Nombre / Slug */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="field">
+            <label className="label">Nombre *</label>
             <input
-              type="radio"
-              name="gender"
-              value="male"
-              checked={form.gender === "male"}
-              onChange={(e) => onChange("gender", e.target.value)}
+              className="input w-full border border-neutral-400 dark:border-neutral-300"
+              value={form.name}
+              onChange={(e) => onChange("name", e.target.value)}
+              placeholder="Ej: Tenis urbano unisex"
+              required
             />
-            <span>Hombre</span>
-          </label>
-          <label className="inline-flex items-center gap-2 cursor-pointer">
+          </div>
+          <div className="field">
+            <label className="label flex items-center justify-between">
+              <span>Slug</span>
+              <span className="text-[0.7rem] help">Opcional</span>
+            </label>
             <input
-              type="radio"
-              name="gender"
-              value="female"
-              checked={form.gender === "female"}
-              onChange={(e) => onChange("gender", e.target.value)}
+              className="input w-full border border-neutral-400 dark:border-neutral-300"
+              value={form.slug}
+              onChange={(e) => onChange("slug", e.target.value)}
+              placeholder="tenis-urbano-unisex"
             />
-            <span>Mujer</span>
-          </label>
+          </div>
         </div>
-      </div>
 
-      {/* Imagen principal — ahora usando MainImageField */}
-      <div className="space-y-2">
-        <MainImageField
-          label="Imagen principal"
-          valueFile={form.main_image}
-          valueAlt={form.main_image_alt}
-          existingUrl={form.main_image_url}
-          onChangeFile={(file) => onChange("main_image", file)}
-          onChangeAlt={(txt) => onChange("main_image_alt", txt)}
-          help="JPG, PNG o WEBP. Tamaño recomendado: 1200×1200."
-        />
+        {/* Descripción */}
+        <div className="field">
+          <label className="label">Descripción</label>
+          <textarea
+            className="textarea w-full border border-neutral-400 dark:border-neutral-300"
+            rows={3}
+            value={form.description}
+            onChange={(e) => onChange("description", e.target.value)}
+            placeholder="Detalles del producto, materiales, usos recomendados…"
+          />
+          <p className="help">
+            Esta descripción se mostrará en la ficha del producto.
+          </p>
+        </div>
 
-        {/* Botón opcional para limpiar en edición */}
-        {(form.main_image || form.main_image_url) && (
-          <div className="mt-1">
-            <button
-              type="button"
-              className="btn btn-ghost is-sm"
-              onClick={clearMainImage}
+        {/* Talla / Color */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="field">
+            <label className="label">Talla</label>
+            <input
+              className="input w-full border border-neutral-400 dark:border-neutral-300"
+              value={form.size}
+              onChange={(e) => onChange("size", e.target.value)}
+              placeholder="Ej: 36, 37, M, L…"
+            />
+          </div>
+
+          <div className="field">
+            <label className="label">Color(es)</label>
+            <textarea
+              className="textarea w-full min-h-[80px] resize-y border border-neutral-400 dark:border-neutral-300"
+              value={form.color}
+              onChange={(e) => onChange("color", e.target.value)}
+              placeholder="Ej: Negro, blanco, amarillo, naranja, dorado, verde, café…"
+            />
+            <p className="help">
+              Escribe uno o varios colores separados por coma. El campo admite
+              textos largos.
+            </p>
+
+            {colorChips.length > 0 && (
+              <div className="mt-2 flex flex-wrap gap-2">
+                {colorChips.map((c, idx) => (
+                  <span
+                    key={`${c}-${idx}`}
+                    className="inline-flex items-center rounded-full border border-neutral-400 dark:border-neutral-300 bg-[hsl(var(--muted)/0.8)] px-2.5 py-0.5 text-xs text-[hsl(var(--fg))]"
+                  >
+                    {c}
+                  </span>
+                ))}
+              </div>
+            )}
+          </div>
+        </div>
+
+        {/* Género y Estado */}
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          {/* Género */}
+          <div className="field">
+            <label className="label">Género</label>
+            <div className="flex gap-4 items-center mt-1">
+              <label className="inline-flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="gender"
+                  value="male"
+                  checked={form.gender === "male"}
+                  onChange={(e) => onChange("gender", e.target.value)}
+                />
+                <span className="text-sm">Hombre</span>
+              </label>
+              <label className="inline-flex items-center gap-2 cursor-pointer">
+                <input
+                  type="radio"
+                  name="gender"
+                  value="female"
+                  checked={form.gender === "female"}
+                  onChange={(e) => onChange("gender", e.target.value)}
+                />
+                <span className="text-sm">Mujer</span>
+              </label>
+            </div>
+          </div>
+
+          {/* Estado */}
+          <div className="field">
+            <label className="label">Estado</label>
+            <select
+              className="select w-full border border-neutral-400 dark:border-neutral-300"
+              value={form.status}
+              onChange={(e) => onChange("status", e.target.value)}
             >
-              Quitar imagen principal
-            </button>
+              <option value="published">Publicado</option>
+              <option value="draft">Borrador</option>
+              <option value="archived">Archivado</option>
+            </select>
+            <p className="help">
+              Controla si el producto es visible en la tienda.
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* Sección: Imágenes */}
+      <section className="card p-4 md:p-6 space-y-4 border border-neutral-400 dark:border-neutral-300">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-[hsl(var(--muted-foreground))]">
+          Imágenes
+        </h3>
+
+        {/* Imagen principal */}
+        <div className="space-y-2">
+          <MainImageField
+            label="Imagen principal"
+            valueFile={form.main_image}
+            valueAlt={form.main_image_alt}
+            existingUrl={form.main_image_url}
+            onChangeFile={(file) => onChange("main_image", file)}
+            onChangeAlt={(txt) => onChange("main_image_alt", txt)}
+            help="JPG, PNG o WEBP. Tamaño recomendado: 1200×1200."
+          />
+
+          {(form.main_image || form.main_image_url) && (
+            <div className="mt-1">
+              <button
+                type="button"
+                className="btn btn-ghost is-sm"
+                onClick={clearMainImage}
+              >
+                Quitar imagen principal
+              </button>
+            </div>
+          )}
+        </div>
+
+        {/* Galería existente */}
+        {existingImages.length > 0 && (
+          <div className="space-y-2">
+            <div className="flex items-center justify-between">
+              <span className="label">Galería existente</span>
+              <span className="text-xs help">
+                Reordena y marca para eliminar
+              </span>
+            </div>
+            <ul className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
+              {existingImages.map((img, idx) => (
+                <li
+                  key={img.id}
+                  className={`flex flex-col gap-2 rounded-lg bg-[hsl(var(--card))] p-2 border border-neutral-400 dark:border-neutral-300 ${
+                    img.remove ? "opacity-60 ring-1 ring-[hsl(var(--destructive))]" : ""
+                  }`}
+                >
+                  <img
+                    src={img.url}
+                    alt={img.alt || `Imagen ${img.id}`}
+                    className="w-full h-28 object-cover rounded-md border border-neutral-400 dark:border-neutral-300"
+                  />
+                  <div className="flex items-center justify-between gap-2">
+                    <label className="inline-flex items-center gap-2 cursor-pointer text-xs">
+                      <input
+                        id={`rm-${img.id}`}
+                        type="checkbox"
+                        checked={!!img.remove}
+                        onChange={() => toggleRemove(img.id)}
+                      />
+                      <span>Eliminar</span>
+                    </label>
+                    <div className="flex gap-1">
+                      <button
+                        type="button"
+                        className="btn btn-ghost is-sm"
+                        onClick={() => moveImage(img.id, "up")}
+                        title="Subir"
+                      >
+                        ↑
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-ghost is-sm"
+                        onClick={() => moveImage(img.id, "down")}
+                        title="Bajar"
+                      >
+                        ↓
+                      </button>
+                    </div>
+                  </div>
+                  <span className="text-[11px] help">
+                    id: {img.id} · orden: {idx + 1}
+                  </span>
+                </li>
+              ))}
+            </ul>
+            <p className="text-xs help">
+              El orden mostrado se enviará como{" "}
+              <code className="font-mono">images_order[]</code>. Los marcados se
+              enviarán en <code className="font-mono">remove_image_ids[]</code>.
+            </p>
           </div>
         )}
 
-        {/* Precio (COP) conservando tu lógica de placeholder 0 y vacío si no hay datos */}
-        <div className="mt-3">
-          <label className="text-sm text-muted block">Valor (COP)</label>
-          <input
-            type="number"
-            min={0}
-            step={1000}
-            value={form.price_cents ?? ""} // 👈 sin dividir
-            onChange={(e) => {
-              const v = e.target.value;
-              onChange("price_cents", v === "" ? null : Math.max(0, Number(v))); // 👈 sin multiplicar
-            }}
-            className="input"
-            placeholder="0"
-          />
-        </div>
-      </div>
+        {/* Agregar nuevas imágenes */}
+        <div className="field">
+          <label className="label">Agregar a galería</label>
 
-      {/* Galería existente (editar) */}
-      {existingImages.length > 0 && (
-        <div className="space-y-2">
-          <label className="text-sm text-muted block">
-            Galería (existente)
-          </label>
-          <ul className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-3">
-            {existingImages.map((img, idx) => (
-              <li key={img.id} className="card p-2 flex flex-col gap-2">
-                <img
-                  src={img.url}
-                  alt={img.alt || `Imagen ${img.id}`}
-                  className="w-full h-28 object-cover rounded-app border"
-                />
-                <div className="flex items-center justify-between">
-                  <label className="inline-flex items-center gap-2 cursor-pointer">
-                    <input
-                      id={`rm-${img.id}`}
-                      type="checkbox"
-                      checked={!!img.remove}
-                      onChange={() => toggleRemove(img.id)}
-                    />
-                    <span className="text-sm">Eliminar</span>
-                  </label>
-                  <div className="flex gap-1">
-                    <button
-                      type="button"
-                      className="btn btn-ghost"
-                      onClick={() => moveImage(img.id, "up")}
-                      title="Subir"
-                    >
-                      ↑
-                    </button>
-                    <button
-                      type="button"
-                      className="btn btn-ghost"
-                      onClick={() => moveImage(img.id, "down")}
-                      title="Bajar"
-                    >
-                      ↓
-                    </button>
-                  </div>
+          <label className="panel flex cursor-pointer items-center justify-between gap-3 border-2 border-dashed border-neutral-400 dark:border-neutral-300 bg-[hsl(var(--muted)/0.8)] px-4 py-3 hover:bg-[hsl(var(--muted))] transition-colors">
+            <div className="flex items-center gap-3">
+              <div className="grid h-10 w-10 place-items-center rounded-lg bg-[hsl(var(--bg))] border border-neutral-400 dark:border-neutral-300">
+                🖼️
+              </div>
+              <div className="leading-tight">
+                <div className="text-sm font-semibold">
+                  Subir imágenes adicionales
                 </div>
-                <span className="text-xs text-muted">
-                  id: {img.id} · pos: {idx}
-                </span>
-              </li>
-            ))}
-          </ul>
-          <p className="text-xs text-muted">
-            El orden mostrado se enviará como <code>images_order[]</code>. Los
-            marcados se enviarán en <code>remove_image_ids[]</code>.
-          </p>
-        </div>
-      )}
-
-      {/* Agregar nuevas imágenes a la galería */}
-      <div className="space-y-2">
-        <label className="text-sm text-muted block">Agregar a galería</label>
-
-        {/* Dropzone simple estilizada */}
-        <label className="panel p-3 flex cursor-pointer items-center justify-between gap-3 rounded border-2 border-dashed border-subtle bg-[hsl(var(--muted))/0.5] hover:bg-[hsl(var(--muted))/0.8] transition-colors">
-          <div className="flex items-center gap-3">
-            <div className="grid h-10 w-10 place-items-center rounded bg-[hsl(var(--bg))] border">
-              🖼️
-            </div>
-            <div className="leading-tight">
-              <div className="font-semibold">Subir imágenes</div>
-              <div className="help">
-                Arrastra y suelta o haz clic (múltiples)
+                <div className="text-xs help">
+                  Arrastra y suelta o haz clic (múltiples archivos)
+                </div>
               </div>
             </div>
+            <span className="btn btn-secondary is-sm">Seleccionar</span>
+            <input
+              multiple
+              type="file"
+              accept="image/*"
+              className="sr-only"
+              onChange={(e) =>
+                onChange("images", Array.from(e.target.files || []))
+              }
+            />
+          </label>
+        </div>
+      </section>
+
+      {/* Sección: Precio */}
+      <section className="card p-4 md:p-6 space-y-4 border border-neutral-400 dark:border-neutral-300">
+        <h3 className="text-sm font-semibold uppercase tracking-wide text-[hsl(var(--muted-foreground))]">
+          Precio
+        </h3>
+        <div className="grid grid-cols-1 md:grid-cols-[minmax(0,1fr)_auto] gap-4 items-end">
+          <div className="field">
+            <label className="label">Valor (COP)</label>
+            <input
+              type="number"
+              min={0}
+              step={1}
+              value={form.price_cents ?? ""}
+              onChange={(e) => {
+                const v = e.target.value;
+                if (v === "") {
+                  onChange("price_cents", null);
+                  return;
+                }
+                let num = Number(v);
+                if (Number.isNaN(num)) return;
+                if (num < 0) num = 0;
+                if (num > MAX_PRICE) num = MAX_PRICE;
+                onChange("price_cents", num);
+              }}
+              className="input w-full border border-neutral-400 dark:border-neutral-300"
+              placeholder="0"
+            />
+
+            <p className="help">
+              Límite aprox:{" "}
+              {new Intl.NumberFormat("es-CO", {
+                style: "currency",
+                currency: "COP",
+                maximumFractionDigits: 0,
+              }).format(MAX_PRICE)}
+              . Escribe el valor completo en pesos (sin puntos ni comas).
+            </p>
           </div>
-          <span className="btn btn-secondary is-sm">Seleccionar</span>
-          <input
-            multiple
-            type="file"
-            accept="image/*"
-            className="sr-only"
-            onChange={(e) =>
-              onChange("images", Array.from(e.target.files || []))
-            }
-          />
-        </label>
-      </div>
+          <div className="text-right md:text-base text-sm">
+            <div className="text-xs uppercase tracking-wide text-[hsl(var(--muted-foreground))] mb-1">
+              Vista previa
+            </div>
+            <div className="font-semibold">
+              {form.price_cents
+                ? new Intl.NumberFormat("es-CO", {
+                    style: "currency",
+                    currency: "COP",
+                    maximumFractionDigits: 0,
+                  }).format(form.price_cents)
+                : "—"}
+            </div>
+          </div>
+        </div>
+      </section>
 
-      {/* Estado */}
-      <div className="space-y-1">
-        <label className="text-sm text-muted">Estado</label>
-        <select
-          className="select"
-          value={form.status}
-          onChange={(e) => onChange("status", e.target.value)}
+      {/* Actions */}
+      <div className="flex items-center gap-3 justify-end">
+        <button
+          type="submit"
+          disabled={loading}
+          className="btn btn-primary min-w-[120px]"
         >
-          <option value="published">Publicado</option>
-          <option value="draft">Borrador</option>
-          <option value="archived">Archivado</option>
-        </select>
-      </div>
-
-      <div className="flex gap-2">
-        <button type="submit" disabled={loading} className="btn btn-primary">
           {loading ? "Guardando..." : product ? "Actualizar" : "Crear"}
         </button>
-        {debug && <span className="badge">debug activo</span>}
       </div>
     </form>
   );

@@ -2,7 +2,7 @@ import React, { useState, useRef, useEffect } from "react";
 import { NavLink } from "react-router-dom";
 import CartButton from "../car/CartButton.jsx";
 import { IoMdSearch } from "react-icons/io";
-import { HiOutlineMenu, HiOutlineX } from "react-icons/hi";
+import { HiOutlineMenu, HiOutlineX, HiOutlineUser } from "react-icons/hi";
 import Logo from "../../assets/logo.png";
 import { useCart } from "../../context/cart/cart-context";
 
@@ -11,7 +11,7 @@ const Menu = [
   { id: 2, name: "Nosotros", link: "/about" },
   { id: 3, name: "Tienda", link: "/shop" },
   { id: 4, name: "Contacto", link: "/contact" },
-  { id: 5, name: "", link: "/login" },
+  // login lo manejamos aparte con botón de usuario
 ];
 
 export default function Navbar() {
@@ -21,7 +21,8 @@ export default function Navbar() {
   const { openCart, count } = useCart();
 
   useEffect(() => {
-    if (isOpen && menuRef.current) setMaxHeight(menuRef.current.scrollHeight + "px");
+    if (isOpen && menuRef.current)
+      setMaxHeight(menuRef.current.scrollHeight + "px");
     else setMaxHeight("0px");
   }, [isOpen]);
 
@@ -56,7 +57,11 @@ export default function Navbar() {
               </button>
 
               {/* Logo */}
-              <NavLink to="/" aria-label="Inicio" className="inline-flex items-center">
+              <NavLink
+                to="/"
+                aria-label="Inicio"
+                className="inline-flex items-center"
+              >
                 {Logo ? (
                   <img
                     src={Logo}
@@ -80,7 +85,6 @@ export default function Navbar() {
                     to={item.link}
                     className={({ isActive }) =>
                       [
-                        // altura y alineación vertical exacta con el logo:
                         "inline-flex items-center h-14 px-3 rounded-full font-medium transition-all duration-200",
                         isActive
                           ? "text-[#191410] bg-[#FAEAD7]"
@@ -96,12 +100,25 @@ export default function Navbar() {
 
             {/* Acciones derecha */}
             <div className="flex justify-end items-center gap-2 sm:gap-4">
+              {/* Botón usuario / login (desktop) */}
               {/* Carrito */}
               <CartButton onClick={openCart} count={count} />
+              <NavLink
+                to="/login"
+                className={({ isActive }) =>
+                  [
+                    "hidden sm:inline-flex items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors",
+                    "border-[#FAEAD7]/80 text-[#FAEAD7]",
+                    "hover:bg-[#FAEAD7] hover:text-[#191410]",
+                    isActive ? "bg-[#FAEAD7] text-[#191410]" : "",
+                  ].join(" ")
+                }
+              >
+                <HiOutlineUser className="text-base" /> 
+              </NavLink>
             </div>
           </div>
 
-         
           {/* Overlay fondo cuando el menú está abierto (móvil) */}
           {isOpen && (
             <div
@@ -137,8 +154,25 @@ export default function Navbar() {
                 </NavLink>
               ))}
 
+              {/* Botón usuario / login en móvil */}
+              <NavLink
+                to="/login"
+                className={({ isActive }) =>
+                  [
+                    "mt-2 flex items-center justify-center gap-2 rounded-full border px-3 py-2 text-base font-medium transition-colors",
+                    "border-[#FAEAD7]/80 text-[#FAEAD7]",
+                    "hover:bg-[#FAEAD7] hover:text-[#191410]",
+                    isActive ? "bg-[#FAEAD7] text-[#191410]" : "",
+                  ].join(" ")
+                }
+                onClick={() => setIsOpen(false)}
+              >
+                <HiOutlineUser className="text-lg" />
+                <span>Iniciar sesión</span>
+              </NavLink>
+
               {/* Carrito en móvil */}
-              <div className="pt-2">
+              <div className="pt-3">
                 <CartButton
                   onClick={() => {
                     openCart();

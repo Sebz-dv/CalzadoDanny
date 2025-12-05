@@ -272,19 +272,23 @@
                         </td>
                     </tr>
 
-                    @php $payUrl = $payUrl ?? ($order->bold_link_url ?? null); @endphp
+                    {{-- Botón Pagar ahora --}}
+                    @php
+                        // Ya te llega $payUrl desde el Mailable; no hay $order aquí.
+                        $payUrl = $payUrl ?? null;
+                    @endphp
                     @if (!empty($payUrl))
                         <tr>
                             <td align="center" style="padding:16px 0;">
                                 <!--[if mso]>
-                                <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" href="{{ $payUrl }}" arcsize="10%" strokecolor="#48331E" fillcolor="#48331E" style="height:44px;v-text-anchor:middle;width:260px;">
+                                    <v:roundrect xmlns:v="urn:schemas-microsoft-com:vml" href="{{ $payUrl }}" arcsize="10%" strokecolor="#48331E" fillcolor="#48331E" style="height:44px;v-text-anchor:middle;width:260px;">
                                     <w:anchorlock/>
                                     <center style="color:#ffffff; font-family:Arial,sans-serif; font-size:16px; font-weight:600;">
-                                    Pagar ahora
+                                        Pagar ahora
                                     </center>
-                                </v:roundrect>
-                                <![endif]-->
-                                <![if !mso]><!-- -->
+                                    </v:roundrect>
+                                    <![endif]-->
+                                <!--[if !mso]><!-- -->
                                 <a href="{{ $payUrl }}"
                                     style="background:#48331E; color:#ffffff; text-decoration:none; display:inline-block; padding:12px 18px; border-radius:6px; font-weight:600; border:1px solid #48331E;">
                                     Pagar ahora
@@ -293,6 +297,7 @@
                             </td>
                         </tr>
                     @endif
+
                     <!-- Notas -->
                     @if ($notes)
                         <tr>

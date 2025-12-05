@@ -1,39 +1,63 @@
 <?php
+
 namespace App\Services;
 
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Str;
+use Illuminate\Support\Facades\Log;
 
 class BoldLinkService
 {
     public function createPaymentLink(int $totalCop, string $description, ?string $payerEmail = null): array
     {
-        $resp = Http::withHeaders([
-            'Authorization' => 'x-api-key '.config('services.bold.api_key'),
-            'Accept'        => 'application/json',
-            'Content-Type'  => 'application/json',
-        ])->post('https://integrations.api.bold.co/online/link/v1', [
-            // Monto cerrado: tú defines el total
-            'amount_type'     => 'CLOSE',
-            'amount'          => [
-                'currency' => 'COP',
-                'total'    => $totalCop, // entero en COP, p.ej. 129900
-                // opcional: impuestos (VAT/CONSUMPTION) si los manejas por separado
-                // 'taxes' => [['type' => 'VAT','base' => 109160,'value' => 20740]],
+        $baseUrl   = rtrim(config('services.bold.base_url'), '/');
+        $apiKey    = config('services.bold.api_key');
+        $currency  = config('services.bold.currency', 'COP');
+        $callback  = config('services.bold.callback_url');
+
+        if (! $apiKey) {
+            throw new \RuntimeException('Bold API key not configured');
+        }
+
+        $payload = [
+            'amount_type' => 'CLOSE',
+            'amount' => [
+                'currency'     => $currency,
+                'total_amount' => $totalCop, // COP enteros
+                'tip_amount'   => 0,
             ],
-            'description'     => Str::limit($description, 100, ''),
-            // opcional: restringir métodos de pago
-            // 'payment_methods' => ['CREDIT_CARD','PSE','BOTON_BANCOLOMBIA','NEQUI'],
-            'payer_email'     => $payerEmail,
-            // opcional: fecha de expiración en epoch (nanosegundos). Si no, queda sin expiración.
-            // 'expiration_date' => now()->addDays(3)->valueOf() * 1000000,
-            // opcional: imagen https://... .png|.jpg
-            // 'image_url' => 'https://tu-sitio.com/img/producto.jpg',
+            'description'  => $description,
+            'reference'    => $description,
+            'callback_url' => $callback,
+            'payer_email'  => $payerEmail,
+        ];
+
+        $resp = Http::withHeaders([
+            'Authorization' => 'x-api-key ' . $apiKey,
+        ])->post($baseUrl . '/online/link/v1', $payload);
+
+        if (! $resp->successful()) {
+            Log::error('BoldLinkService: error creando link', [
+                'status' => $resp->status(),
+                'body'   => $resp->body(),
+            ]);
+
+            throw new \RuntimeException('Error al crear link de pago Bold: HTTP ' . $resp->status());
+        }
+
+        $body = $resp->json();
+
+        $paymentLink = data_get($body, 'payload.payment_link');
+        $url         = data_get($body, 'payload.url');
+
+        Log::info('BoldLinkService: link creado OK', [
+            'payment_link' => $paymentLink,
+            'url'          => $url,
         ]);
 
-        $resp->throw();
-
-        // La respuesta incluye el identificador y el link generado
-        return $resp->json(); // guarda aquí id/link/reference según payload
+        return [
+            'payment_link' => $paymentLink,
+            'url'          => $url,
+            'raw'          => $body,
+        ];
     }
 }

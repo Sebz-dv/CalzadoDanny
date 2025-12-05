@@ -5,7 +5,6 @@ namespace App\Http\Controllers;
 use App\Http\Requests\CheckoutRequest;
 use App\Mail\NewOrderMail;
 use App\Models\Product;
-use App\Services\BoldLinkService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Support\Facades\Log;
 use Illuminate\Support\Facades\Mail;
@@ -13,13 +12,37 @@ use Illuminate\Support\Str;
 
 class CheckoutController extends Controller
 {
-    public function store(CheckoutRequest $request, BoldLinkService $bold): JsonResponse
+    public function store(CheckoutRequest $request): JsonResponse
     {
-        $maskEmail = fn(?string $email) => $email ? preg_replace('/(^.).*(@.*$)/', '$1***$2', $email) : null;
-        $maskPhone = fn(?string $phone) => $phone ? preg_replace('/.(?=.{2})/', '•', preg_replace('/\s+/', '', $phone)) : null;
+        // ===== Contexto y helpers =====
+        $t0 = microtime(true);
+        $requestId = (string) Str::uuid();
 
+        Log::withContext([
+            'request_id' => $requestId,
+            'route'      => 'api.checkout.store',
+            'ip'         => $request->ip(),
+            'ua'         => (string) $request->userAgent(),
+        ]);
+
+        $maskEmail = fn(?string $email) =>
+            $email ? preg_replace('/(^.).*(@.*$)/', '$1***$2', $email) : null;
+
+        $maskPhone = fn(?string $phone) =>
+            $phone ? preg_replace('/.(?=.{2})/', '•', preg_replace('/\s+/', '', $phone)) : null;
+
+        // ===== Entrada validada =====
         $data = $request->validated();
+        Log::info('Checkout: payload recibido', [
+            'items_count' => is_countable($data['items'] ?? null) ? count($data['items']) : 0,
+            'customer'    => [
+                'email' => $maskEmail($data['customer']['email'] ?? null),
+                'phone' => $maskPhone($data['customer']['phone'] ?? null),
+            ],
+            'total_cents_from_client' => (int) ($data['total_cents'] ?? -1),
+        ]);
 
+        // ===== Normalización de ítems =====
         $items = collect($data['items'] ?? [])
             ->map(function ($it) {
                 return [
@@ -33,6 +56,7 @@ class CheckoutController extends Controller
                 ];
             })->values()->all();
 
+        // Fallback de nombre desde BD
         $items = collect($items)->map(function ($it) {
             if (!filled($it['name']) && !empty($it['product_id'])) {
                 if ($p = Product::select('name')->find($it['product_id'])) {
@@ -42,11 +66,25 @@ class CheckoutController extends Controller
             return $it;
         })->values()->all();
 
-        $serverTotal = array_reduce($items, fn($acc, $it) =>
-        $acc + ($it['price_cents'] * $it['qty']), 0);
+        Log::debug('Checkout: items normalizados', [
+            'names' => array_map(fn($i) => $i['name'] ?? null, $items),
+        ]);
+
+        // ===== Totales (server vs client) =====
+        $serverTotal = array_reduce(
+            $items,
+            fn($acc, $it) => $acc + ($it['price_cents'] * $it['qty']),
+            0
+        );
 
         $clientTotal = (int) ($data['total_cents'] ?? -1);
         if ($clientTotal !== $serverTotal) {
+            Log::warning('Checkout: mismatch de total', [
+                'client_total' => $clientTotal,
+                'server_total' => $serverTotal,
+                'diff'         => $serverTotal - $clientTotal,
+            ]);
+
             return response()->json([
                 'message'       => 'El total no coincide.',
                 'server_total'  => $serverTotal,
@@ -54,6 +92,7 @@ class CheckoutController extends Controller
             ], 422);
         }
 
+        // ===== Cliente =====
         $customer = [
             'email'   => $data['customer']['email'] ?? null,
             'phone'   => $data['customer']['phone'] ?? null,
@@ -61,32 +100,49 @@ class CheckoutController extends Controller
         ];
 
         if (!filter_var($customer['email'], FILTER_VALIDATE_EMAIL)) {
+            Log::warning('Checkout: email inválido tras validated()', [
+                'email' => $maskEmail($customer['email']),
+            ]);
             return response()->json(['message' => 'Correo inválido.'], 422);
         }
 
-        $orderCode = 'ORD-' . Str::upper(Str::random(8));
+        // ===== Código de pedido =====
+        $orderCode = 'ORD-' . now()->format('YmdHis') . '-' . Str::upper(Str::random(5));
+        Log::info('Checkout: creando orden', ['order_code' => $orderCode]);
 
-        // === NUEVO: crear Link de Pago Bold ===
-        // serverTotal está en centavos. Convertimos a COP (entero).
-        $totalCop = (int) round($serverTotal / 100);
-        $payUrl = null;
-        $boldMeta = null;
+        // ===== Datos para Bold (hash de integridad) =====
+        $amount   = $serverTotal; // Monto entero en COP (sin decimales)
+        $currency = config('services.bold.currency', 'COP');
+        $secret   = trim((string) config('services.bold.secret_key', ''));
 
-        try {
-            $boldMeta = $bold->createPaymentLink(
-                totalCop: $totalCop,
-                description: "Pago orden #{$orderCode}",
-                payerEmail: $customer['email']
-            );
+        Log::info('DEBUG Bold config', [
+            'has_secret' => $secret !== '',
+            'currency'   => $currency,
+        ]);
 
-            // Ajusta estas claves según la respuesta real:
-            $payUrl = $boldMeta['url']
-                ?? ($boldMeta['payment_url'] ?? null);
-        } catch (\Throwable $e) {
-            // No abortamos la orden por fallo del link; enviamos sin botón de pago
-            Log::warning('Bold link error', ['err' => $e->getMessage(), 'order' => $orderCode]);
+        if ($secret === '') {
+            Log::error('Bold: secret_key no configurada en services.bold / .env');
+
+            return response()->json([
+                'ok'      => false,
+                'message' => 'Error de configuración de pagos. Contacta soporte.',
+            ], 500);
         }
 
+        // Cadena: {Identificador}{Monto}{Divisa}{LlaveSecreta}
+        $cadena = $orderCode . $amount . $currency . $secret;
+
+        // Hash SHA-256
+        $hash = hash('sha256', $cadena);
+
+        Log::info('Bold: hash de integridad generado', [
+            'order_code' => $orderCode,
+            'amount'     => $amount,
+            'currency'   => $currency,
+            // No logeamos la cadena ni el secret por seguridad
+        ]);
+
+        // ===== Envío de correo =====
         try {
             $to = 'Ventasonlinemese@gmail.com';
 
@@ -95,7 +151,7 @@ class CheckoutController extends Controller
                 items: $items,
                 total_cents: $serverTotal,
                 orderCode: $orderCode,
-                payUrl: $payUrl,
+                payUrl: null, // Ahora el pago se hace con el botón Bold en el sitio
             ))
                 ->subject("Nueva orden #{$orderCode}")
                 ->replyTo($customer['email']);
@@ -107,15 +163,24 @@ class CheckoutController extends Controller
 
             $mailer->send($mailable);
 
+            Log::info('Checkout: correo enviado', [
+                'to'         => $maskEmail($to),
+                'cc'         => $maskEmail($customer['email']),
+                'order_code' => $orderCode,
+            ]);
+
             return response()->json([
-                'ok'          => true,
-                'order_code'  => $orderCode,
-                'total_cents' => $serverTotal,
-                'pay_url'     => $payUrl,     // útil para UI
-                'bold_meta'   => $boldMeta,   // opcional para debug/UI
+                'ok'             => true,
+                'order_code'     => $orderCode,
+                'total_cents'    => $serverTotal,
+                'bold_amount'    => $amount,
+                'bold_currency'  => $currency,
+                'bold_signature' => $hash,
+                'elapsed_ms'     => (int) ((microtime(true) - $t0) * 1000),
             ], 201);
         } catch (\Throwable $e) {
-            Log::error('Checkout mail failed', [
+            Log::error('Checkout: fallo enviando correo', [
+                'order_code'  => $orderCode,
                 'error'       => $e->getMessage(),
                 'items_count' => count($items),
                 'has_email'   => (bool) $customer['email'],

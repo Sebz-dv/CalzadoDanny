@@ -1,6 +1,7 @@
-// src/services/checkoutService.js
+// src/services/checkout/checkoutService.js
 import { api } from "../../lib/api";
 
-export function sendCheckout(payload) {
-  return api.post("/checkout", payload);
+export async function sendCheckout(payload) {
+  const resp = await api.post("/checkout", payload);
+  return resp.data; // { ok, order_code, payment_url, ... }
 }
