@@ -224,8 +224,8 @@ function AutofillFix() {
 export default function Login() {
   const nav = useNavigate();
   const { user, login } = useAuth();
-  const [email, setEmail] = useState("admin@example.com");
-  const [password, setPassword] = useState("Admin12320*");
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
   const [error, setError] = useState("");
   const [pending, setPending] = useState(false);
   const [capsLockOn, setCapsLockOn] = useState(false);
