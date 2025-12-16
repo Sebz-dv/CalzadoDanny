@@ -94,6 +94,13 @@ export default function ProductsPage() {
     }
   };
 
+  const genderLabel = (g) => {
+    const v = String(g || "").toLowerCase();
+    if (v === "female" || v === "f") return "Femenino";
+    if (v === "male" || v === "m") return "Masculino";
+    return "-";
+  };
+
   const canPrev = meta.current_page > 1;
   const canNext = meta.current_page < meta.last_page;
 
@@ -121,15 +128,12 @@ export default function ProductsPage() {
       <div className="card overflow-x-auto border border-neutral-400 dark:border-neutral-300">
         <table className="w-full text-sm">
           <thead>
-            <tr className="bg-muted border-b border-neutral-400 dark:border-neutral-300">
-              <th className="text-left p-2">#</th>
-              <th className="text-left p-2">Producto</th>
-              <th className="text-left p-2">Categoría</th>
-              <th className="text-left p-2">Género</th>
-              <th className="text-left p-2">Talla</th>
-              <th className="text-left p-2">Color</th>
-              <th className="text-left p-2">Estado</th>
-              <th className="text-right p-2">Acciones</th>
+            <tr className="bg-muted border-b border-neutral-400 dark:border-neutral-300"> 
+              <th className="text-center p-2">Producto</th>
+              <th className="text-center p-2">Categoría</th>
+              <th className="text-center p-2">Género</th> 
+              <th className="text-center p-2">Estado</th>
+              <th className="text-center p-2">Acciones</th>
             </tr>
           </thead>
           <tbody>
@@ -152,10 +156,9 @@ export default function ProductsPage() {
                 <tr
                   key={p.id}
                   className="border-b border-neutral-200 dark:border-neutral-400/80"
-                >
-                  <td className="p-2 align-middle">{p.id}</td>
-                  <td className="p-2">
-                    <div className="flex items-center gap-3">
+                > 
+                  <td className="p-2 text-center">
+                    <div className="flex items-center gap-2 justify-center">
                       {p.main_image_url ? (
                         <img
                           src={p.main_image_url}
@@ -171,20 +174,14 @@ export default function ProductsPage() {
                       </div>
                     </div>
                   </td>
-                  <td className="p-2">{p.category?.name ?? "-"}</td>
-                  <td className="p-2 capitalize">
-                    {(p.gender || "")
-                      .replace("male", "Hombre")
-                      .replace("female", "Mujer")}
-                  </td>
-                  <td className="p-2">{p.size || "-"}</td>
-                  <td className="p-2">{p.color || "-"}</td>
-                  <td className="p-2">
+                  <td className="p-2 text-center">{p.category?.name ?? "-"}</td>
+                  <td className="p-2 capitalize text-center">{genderLabel(p.gender)}</td> 
+                  <td className="p-2 text-center">
                     <span className="badge border border-neutral-400 dark:border-neutral-300">
                       {p.status}
                     </span>
                   </td>
-                  <td className="p-2 text-right">
+                  <td className="p-2 text-center">
                     <div className="inline-flex gap-2">
                       <button
                         className="btn btn-outline is-sm border border-neutral-400 dark:border-neutral-300 dark:text-neutral-100"
